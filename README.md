@@ -1,7 +1,7 @@
 # allosigma-utils
 
-This repository contains utilities to handle and visualize AlloSigMA2 output.
-See below for the description of each individual script.
+This repository contains utilities to handle and visualize AlloSigMA2 output according to the MAVISP framework (https://www.biorxiv.org/content/10.1101/2022.10.22.513328v4).
+See below for the description of each individual script in details - to perform the steps as applied in MAVISp please refer to each individual subfolder and their script and readme.
 
 ## allosigma-classify
 
@@ -272,3 +272,6 @@ areas as in the first plots, but also see how another loop is affected heavily i
   <img src="https://github.com/ELELAB/CSB-scripts/blob/fix%23%23307_allosigma_filtering_pocket/CSB-SB/allosigma-utils/example/allosigma-visualization/P153_sticks.png" width="300" />
   <img src="https://github.com/ELELAB/CSB-scripts/blob/fix%23%23307_allosigma_filtering_pocket/CSB-SB/allosigma-utils/example/allosigma-visualization/P153_putty.png" width="300" />
 </p>
+
+
+
