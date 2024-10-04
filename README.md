@@ -273,5 +273,10 @@ areas as in the first plots, but also see how another loop is affected heavily i
   <img src="https://github.com/ELELAB/CSB-scripts/blob/fix%23%23307_allosigma_filtering_pocket/CSB-SB/allosigma-utils/example/allosigma-visualization/P153_putty.png" width="300" />
 </p>
 
+# Reference
+if you use the code in this repository please cite our work:
+
+Arnaudi M, Beltrame L, Degn K et al. MAVISp: Multi-layered Assessment of VarIants by Structure for proteins, biorxiv,  https://doi.org/10.1101/2022.10.22.513328 
+
 
 
