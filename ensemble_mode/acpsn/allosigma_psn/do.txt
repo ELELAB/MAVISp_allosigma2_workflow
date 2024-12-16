@@ -1,0 +1,5 @@
+module load python/3.10
+python mut_extract.py -up filtered_up_pockets.tsv -down filtered_down_pockets.tsv -out variant_response.tsv -pdb ../reference_A.pdb 
+python bash_gen.py -tsv variant_response.tsv -cmd commands.sh -plot plot.sh
+tsp -N 1 bash commands.sh
+bash plot.sh
