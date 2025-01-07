@@ -19,9 +19,7 @@
 import os
 import pandas as pd
 import argparse
-import argcomplete
 import warnings
-import logging as log
 import Bio.PDB
 from Bio import BiopythonWarning
 
@@ -113,51 +111,7 @@ def distance_CA(res1, res2):
     distance = res1["CA"] - res2["CA"]
     return distance
 
-def validate_residue(mutation, chain_id, res_pos, res_type, structure):
-    '''Validate residues match from input in provided PDB structure.
-    
-    The function aims to validate both position and residue types are in
-    agreement between the input files and the provided PDB. 
-    
-    Function is used to both validate mutation and pocket sites.
-    
-    Parameters 
-    ----------
-    mutation: str
-        mutation 
-    chain_id: str
-        chain ID to be accessed in structure
-    res_pos: str
-        residue position
-    res_type: str
-        residue code
-    structure: class object
-        PDB structure. 
-    Returns 
-    ----------
-    booleans
-    '''
-    try:
-        # Fetch the residue from the structure
-        res = structure[chain_id][res_pos]
-        
-        # Convert the PDB residue name to one-letter code
-        pdb_res_type = Bio.PDB.Polypeptide.three_to_one(res.get_resname())
-        
-        # Compare the input residue type with the PDB residue type
-        if pdb_res_type == res_type:
-            return True
-        else:
-            log.warning(f"Residue mismatch: Input {mutation[:-1]}, PDB {pdb_res_type}{res_pos}")
-            return False
-    except KeyError:
-        log.warning(f"Residue {mutation[:-1]} not found in chain {chain_id} of the PDB structure.")
-        return False
-    except Exception as e:
-        log.error(f"Error during residue validation for {mutation}: {e}")
-        return False
-    
-def summarize_mutations(df1, df2, variants_to_include, structure, threshold, chain_id):
+def summarize_mutations(df1, df2, variants_to_include, structure, threshold):
     '''Summarize Variant-Response Sites.
 
     The function aims to summarize the variant and response sites found in down and up DF, 
@@ -175,63 +129,56 @@ def summarize_mutations(df1, df2, variants_to_include, structure, threshold, cha
         PDB structure. 
     threshold: int
         Distance threshold in Ångstrom (default: 15).
-    chain_id: str
-        ID of the chain to be accessed in structure (defualt: A).
+
     Returns 
     ----------
     summary_data:  df
         Dataframe containing validated variants and respective response residues.
     '''
     concatenated_df = pd.concat([df1, df2], axis=1, sort=True)
-    
+
     # Extract the first mutation from each cell
     mutation_set = set()
     for mutation in concatenated_df.index:
-        first_mutation = mutation.split()[0]
-        mutation_set.add(first_mutation)
+        first_mutation = mutation.split()[0] 
+        residue_pos = first_mutation[1:-1]  
+        mutation_set.add(residue_pos)
 
     # Filter the residues based on variants_to_include if it's provided
     if variants_to_include:
-        mutation_set = {mut for mut in mutation_set if mut in variants_to_include}
+        mutation_set = {residue_pos for residue_pos in mutation_set if any(var.split()[0][1:-1] == residue_pos for var in variants_to_include)}
 
     # Create a DataFrame to store the summary
     summary_data = {'Variant Sites': [], 'Response Sites': []}
 
-    # Iterate through all mutation sites
-    for mutation in mutation_set:
-        res_pos, res_type = int(mutation[1:-1]), mutation[0]
-
-        if not validate_residue(mutation, chain_id, res_pos, res_type, structure):
+    # Iterate through all residues
+    for residue in mutation_set:
+        pocket_residues = concatenated_df.columns[concatenated_df.loc[[mutation for mutation in concatenated_df.index if mutation.split()[0][1:-1] == residue]].notna().any()].tolist()
+        try:
+            res1 = structure['A'][int(residue)]
+        except:
+            print(f"Residue {residue} not found in chain 'A'in PDB, skipping...")
             continue
-
-        res1 = structure[chain_id][res_pos]
-        pocket_residues = concatenated_df.columns[concatenated_df.loc[[mut for mut in concatenated_df.index if mut.split()[0][:-1] == mutation[:-1]]].notna().any()].tolist()        
 
         # Check distance for each pocket residue
         valid_pocket_residues = set()
 
         for pocket in pocket_residues:
-            pocket_pos, pocket_type = int(pocket[1:]), pocket[0]
-            if not validate_residue(pocket, chain_id, res_pos, res_type, structure):
-                continue
             try:
-                res2 = structure[chain_id][pocket_pos]
+                res2 = structure['A'][int(pocket[1:])]
                 distance = distance_CA(res1, res2)
-                if distance >= threshold:
+                if distance > threshold:
                     valid_pocket_residues.add(pocket)
-                else:
-                    log.warning(f'Distance not sat for {mutation[:-1]} and {pocket} at distance {distance}')
-            except KeyError:
-                log.error(f"An error occurred for residue {mutation[:-1]} and pocket site {pocket}")
+            except Exception:
+                print(f"Error: Pocket residue {pocket} not found in chain 'A' in PDB, skipping...")
                 continue
 
         # Add to summary if at least one pocket residue is above the threshold
         if valid_pocket_residues:
-            summary_data['Variant Sites'].append(mutation[1:-1])
-            summary_data['Response Sites'].append(','.join(sorted(valid_pocket_residues)))
+            summary_data['Variant Sites'].append(residue)
+            summary_data['Response Sites'].append(','.join(map(str, valid_pocket_residues)))
 
     return pd.DataFrame(summary_data)
-
 def write_pml_script(mutation, pocket_residues, pdb_file):
     '''Generate PML 
     This function writes a PML script for PyMOL visualization per mutation
@@ -302,8 +249,10 @@ def save_pml(pml_script, mutation_file):
     try:
         with open(script_filename, 'w') as script_file:
             script_file.write(pml_script)
+        #print(f"PML script saved to {script_filename}")
     except Exception as e:
         raise RuntimeError(f"Error writing PML script to file {script_filename}: {e}")
+
 
 def write_summary_tsv(summary_df, output_file):
     ''' Write output TSV file.
@@ -325,15 +274,11 @@ def write_summary_tsv(summary_df, output_file):
         summary_df['Response Sites'] = summary_df['Response Sites'].apply(lambda x: ','.join(sorted(x.split(','), key=lambda y: int(y[1:]))))
 
         summary_df.to_csv(output_file, sep='\t', index=False)
-        log.info(f"File saved to {output_file}")
+        print(f"File saved to {output_file}")
     except Exception as e:
-        log.error(f"Error writing to file {output_file}: {e}")
+        raise RuntimeError(f"Error writing to file {output_file}: {e}")
 
 def main():
-    # Basic logging configuration
-    log.basicConfig(level=log.INFO, \
-                    format='%(levelname)s - %(message)s')
-    
     parser = argparse.ArgumentParser(description='Extract variants predicted to affect long-range response sites')
     parser.add_argument('-up', dest='file_up', help='Path to filtered_up.tsv', required=True,)
     parser.add_argument('-down', dest='file_down', help='Path to filtered_down.tsv', required=True, )
@@ -341,9 +286,8 @@ def main():
     parser.add_argument('-pdb', dest='pdb_file', help='PDB file to be used for pml scripts', required=True,)
     parser.add_argument('-filter_file', dest='filter_file', help='Option to filter for specific variants/VUS, format: A000A', default=None)
     parser.add_argument('-dist_threshold', dest='dist_threshold', type=int, help='Distance threshold in Ångstrom (default: 15)', default=15)
-    parser.add_argument('-chain', dest='chain_id', type=str, help='Chain ID (default: A)', default='A')
+
     args = parser.parse_args()
-    argcomplete.autocomplete(parser)
 
     # Check if input files and PDB file exist
     check_file_exists(args.file_up)
@@ -355,6 +299,9 @@ def main():
     # Select the PDB model 0 
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, args.pdb_file)[0]
 
+    # Define distance thresholds
+    threshold = args.dist_threshold
+
     # Read input files
     df1 = read_input_tsv(args.file_up)
     df2 = read_input_tsv(args.file_down)
@@ -363,7 +310,7 @@ def main():
     variants_to_include = read_variant_filter(args.filter_file)
 
     # Summarize mutations
-    summary_df = summarize_mutations(df1, df2, variants_to_include, structure, args.dist_threshold, args.chain_id)
+    summary_df = summarize_mutations(df1, df2, variants_to_include, structure, threshold)
  
     # Write summary to a TSV file
     write_summary_tsv(summary_df, args.output_file)
