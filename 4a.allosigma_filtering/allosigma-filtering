@@ -57,7 +57,7 @@ parser.add_argument("-t", '--threshold',
                     help='The minimum value threshold for dG values in kcal/mol, integer')
 
 parser.add_argument("-d", "--distance_method",
-                    choices=["fraction", "value"],
+                    choices=["fraction", "value","sidechain_fraction","sidechain_value"],
                     required=True,
                     help="Choose the method for setting the threshold: 'fraction' or 'value'")
 
@@ -85,14 +85,14 @@ parser.add_argument('--pocket', action='store_true', help='Addition of pocket ba
 
 args = parser.parse_args()
 
-if args.distance_method == "fraction":
+if args.distance_method == ["fraction", "sidechain_fraction"]:
     if args.fraction is None:
-        parser.error("--fraction is required when distance_method is 'fraction'")
+        parser.error("--fraction is required when distance_method is 'fraction' or 'sidechain_fraction")
     distance_threshold = args.fraction
 
-elif args.distance_method == "value":
+elif args.distance_method == ["value", "sidechain_value"]:
     if args.value is None:
-        parser.error("--value is required when distance_method is 'value'")
+        parser.error("--value is required when distance_method is 'value' or 'sidechain_fraction")
     distance_threshold = args.value
 
 dg_threshold = args.threshold  
@@ -395,8 +395,6 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
     #remove the position and reinstate mutations as the index.
     df = df.set_index('mutations', drop=True)
     
-    create_arginine_list(df, distance_df, PDB, file)
-    
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
@@ -586,8 +584,6 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
             #we continie to use np.nan due as explained above.
     #remove the position and reinstate mutations as the index.
     df = df.set_index('mutations', drop=True)
-
-    create_arginine_list(df, distance_df, PDB, file)
 
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
@@ -847,6 +843,10 @@ if args.distance_method == "fraction":
     df, distance_median = filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file)
 elif args.distance_method == "value":
     df = filter_on_distance_value_biopython(PDB, df, distance_threshold, file)
+elif args.distance_method == "sidechain_fraction":
+    df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file)
+elif args.distance_method == "sidechain_value":
+    df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file)
 
 output_file(df, file)
 
