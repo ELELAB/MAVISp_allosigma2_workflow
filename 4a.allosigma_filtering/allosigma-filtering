@@ -33,7 +33,7 @@ from Bio import BiopythonWarning
 warnings.simplefilter('ignore', BiopythonWarning)
 
 #allosigma-filtering -s {pdb_id} -i {up/down}_mutations.tsv 
-                        #-t {dG resultsld} -d {distance threshold} 
+                        #-t {dG thresholdld} -d {distance threshold} 
                         #-a {access threshold}
 
 parser = argparse.ArgumentParser()
@@ -290,10 +290,8 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
 def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
-    and creates a dataframe with biopython measuring the minimum distance between 
-    side-chain heavy atoms of each residue pair. For glycine residues, hydrogen 
-    atoms are considered. This is used to filter out sites where the mutational 
-    site is closer than the defined distance_threshold. 
+    and filters out mutation–response site pairs where any side-chain heavy atoms
+    (or glycine sidechain hydrogen atoms) are closer than the defined distance_threshold. 
 
     Parameters
     ----------
@@ -309,99 +307,51 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
 
     """
     pdb_id = op.splitext(PDB)[0]
-    structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]   
-    #define backbone atoms.
-    backbone_atoms = ["CA","C","O","N"]	
-    #define empty list to store results. 
-    distance_data = []  
-    #loop over every residue to compair pairwise distances. 
-    for i, residue_1 in enumerate(structure.get_residues()):
-        #check if the residue is an amino acid (e.g., exclude cofactor).
-        if Bio.PDB.is_aa(residue_1):
-            #check if glycine residue contains H atoms
-            if residue_1.get_resname() == "GLY":
-                find_H = False
-                for atom in residue_1:
-                    if atom.element == "H":
+    structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
+    #dictionary to store residue id and corresponding atom objects
+    residue_atoms = {}
+    #flag to check if the structure has hydrogen atoms
+    find_H = False
+    for residue in structure.get_residues():
+        if Bio.PDB.is_aa(residue):
+            residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
+            #create an list to store atom objects 
+            atoms = []
+            #handle glycine exception
+            if residue.get_resname() == "GLY":
+                for atom in residue:
+                    if atom.element == "H" and atom.get_name().startswith("HA"):
+                        atoms.append(atom)
                         find_H = True
-                        break
-                #prints a warning if glycine does not contain H atoms        
-                if not find_H:
-                    print (f"WARNING: Glycine at postion {residue_1.get_id()[1]} does not contain hydrogen atoms") 
-            for j, residue_2 in enumerate(structure.get_residues()):
-                #check if the residue is an amino acid (e.g., exclude cofactor).
-                if Bio.PDB.is_aa(residue_2):  
-                    #documentation that subtraction measure distance: 
-                    #https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
-                    #under the question: "How do I measure distances?"  
-                    min_distance = float("inf")
-                    #iterates over all atoms in the residue.
-                    for atom_1 in residue_1:
-                        #check for glycine exception.
-                        if residue_1.get_resname() == "GLY":
-                            #check for backbone atoms:
-                            if atom_1.get_name() in backbone_atoms:
-                                #skip backbone atoms.
-                                continue             
-                        #check for the other residues.                         
-                        else:
-                            if atom_1.get_name() in backbone_atoms or atom_1.element == "H":
-                                #skip backbone or hydrogen atom.
-                                continue
-                        #iterates over all atoms in the residue.
-                        for atom_2 in residue_2:
-                            #check for glycine exception.
-                            if residue_2.get_resname() == "GLY":
-                                #check for backbone atoms.
-                                if atom_2.get_name() in backbone_atoms:
-                                    #skip backbone atoms.
-                                    continue                            
-                            #check for the other residues.
-                            else:
-                                #check for backbone or hydrogen atoms.
-                                if atom_2.get_name() in backbone_atoms or atom_2.element == "H":
-                                    #skip backbone or hydrogen atom.
-                                    continue
-                            #compute distance. 
-                            distance = atom_1 - atom_2
-                            #keep the minimum distance between any pair of side-chain heavy atoms. 
-                            if distance < min_distance:
-                                min_distance = distance
-                    res_1 = f"{seq1(residue_1.get_resname())}{residue_1.get_id()[1]}"
-                    res_2 = f"{seq1(residue_2.get_resname())}{residue_2.get_id()[1]}"
-                    if min_distance != float("inf"):
-                        distance_data.append((res_1, res_2,(min_distance)))
-                    else:
-                        print(f"SKIPPED: No valid atoms between {res_1} and {res_2}")
-    #convert to a pandas dataframe. 
-    distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
-    #reduce distance_df to include only the residues close to each other 
-    #within the distance_threshold:
-    distance_df_close = distance_df[distance_df.distance <= distance_threshold]
-    #res1   res2    distance
-    #W91    W91     0.0
-    #W91    P92     2.3
-    #Add a column to the df with the position of the mutation.
+            else:
+                for atom in residue:
+                    if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
+                        atoms.append(atom)
+            if atoms:
+                residue_atoms[residue_id] = atoms
+    if not find_H:
+        print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the pairwise distance measurements")
+    
+    #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
     df = df.reset_index()
-    df.set_index('position', inplace=True)    
-    #we iterate over distance_df because it is much more computationally 
-    #cheap to iterate over the smaller dataframe. 
-    for index, row in distance_df_close.iterrows():
-        if row['res1'] in df.index and row['res2'] in df.columns: 
-            df.loc[row['res1'], row['res2']] = np.nan
-            #we continue to use np.nan due as explained above.
-    #remove the position and reinstate mutations as the index.
-    df = df.set_index('mutations', drop=True)
-    
-    #check if all where removed or continue the filtering.
-    if df.isna().all().all():
-        print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
-        exit(1)
-    else:
-        print(f"Filtered successfully on distance, removing sites closer than {distance_threshold} Å.")
-        return df   
+    df.set_index('position', inplace=True)
+    #iterates over the df checking for non-NaN entries  
+    for mutation_site in df.index:
+        for response_site in df.columns:
+            if pd.isna(df.loc[mutation_site, response_site]):
+                continue
+            atoms1 = residue_atoms.get(mutation_site)
+            atoms2 = residue_atoms.get(response_site)
+            #chek for no empty list
+            if atoms1 and atoms2:
+                #check all atom pairs until finds distance below thredshold 
+                if any((a1-a2) < distance_threshold for a1 in atoms1 for a2 in atoms2):
+                    #sets value to NaN
+                    df.loc[mutation_site, response_site] = np.nan                                 
+    #restore original index
+    df = df.reset_index().set_index('mutations')                
 
 def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
     """
@@ -497,102 +447,32 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
     """
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
-    #define backbone atoms.
-    backbone_atoms = ["CA","C","O","N"]
-    #define empty list to store results.
-    distance_data = []
-    #loop over every residue to compair pairwise distances.
-    for i, residue_1 in enumerate(structure.get_residues()):
-        #check if the residue is an amino acid (e.g., exclude cofactor).
-        if Bio.PDB.is_aa(residue_1):
-            #check if glycine residue contains H atoms
-            if residue_1.get_resname() == "GLY":
-                find_H = False
-                for atom in residue_1:
-                    if atom.element == "H":
+    #dictionary to store residue id and atoms coordinates
+    residue_atoms = {}
+    #check if the structure has H atoms
+    find_H = False
+
+    for residue in structure.get_residues():
+        if Bio.PDB.is_aa(residue):
+            residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
+            #create an empty list to store atom coordinates
+            atoms = []
+            #checks for glycine exception
+            if residue.get_resname() == "GLY":
+                for atom in residue:
+                    if atom.element == "H" and atom.get_name().startswith("HA"):
+                        atoms.append(atom)
                         find_H = True
-                        break
-                #prints a warning if glycine does not contain H atoms
-                if not find_H:
-                    print (f"WARNING: Glycine at postion {residue_1.get_id()[1]} does not contain hydrogen atoms")
-            for j, residue_2 in enumerate(structure.get_residues()):
-                #check if the residue is an amino acid (e.g., exclude cofactor).
-                if Bio.PDB.is_aa(residue_2):
-                    #documentation that subtraction measure distance:
-                    #https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
-                    #under the question: "How do I measure distances?"
-                    min_distance = float("inf")
-                    #iterates over all atoms in the residue.
-                    for atom_1 in residue_1:
-                        #check for glycine exception.
-                        if residue_1.get_resname() == "GLY":
-                            #check for backbone atoms:
-                            if atom_1.get_name() in backbone_atoms:
-                                # skip backbone atoms.
-                                continue
-                        #check for the other residues.
-                        else:
-                            if atom_1.get_name() in backbone_atoms or atom_1.element == "H":
-                                #skip backbone or hydrogen atom.
-                                continue
-                        #iterates over all atoms in the residue.
-                        for atom_2 in residue_2:
-                            #check for glycine exception.
-                            if residue_2.get_resname() == "GLY":
-                                #check for backbone atoms.
-                                if atom_2.get_name() in backbone_atoms:
-                                    #skip backbone atoms.
-                                    continue
-                            #check for the other residues.
-                            else:
-                                #check for backbone or hydrogen atoms.
-                                if atom_2.get_name() in backbone_atoms or atom_2.element == "H":
-                                    #skip backbone or hydrogen atom.
-                                    continue
-                            #compute distance.
-                            distance = atom_1 - atom_2
-                            #keep the minimum distance between any pair of side-chain heavy atoms.
-                            if distance < min_distance:
-                                min_distance = distance
-                    res_1 = f"{seq1(residue_1.get_resname())}{residue_1.get_id()[1]}"
-                    res_2 = f"{seq1(residue_2.get_resname())}{residue_2.get_id()[1]}"
-                    if min_distance != float("inf"):
-                        distance_data.append((res_1, res_2,(min_distance)))
-                    else:
-                        print(f"SKIPPED: No valid atoms between {res_1} and {res_2}")
-    #convert to a pandas dataframe.
-    distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
-    distance_median = distance_df.distance.median()
-    threshold = distance_median * distance_threshold
-    print(f"Median Distance is {distance_median}, hence choosen distance is {distance_median*distance_threshold}")
-    #reduce distance_df to include only the residues close to each other
-    #withon the distance_threshold:
-    distance_df_close = distance_df[distance_df.distance <= threshold]
-    #res1   res2    distance
-    #W91    W91     0.0
-    #W91    P92     2.3
-    #Add a column to the df with the position of the mutation.
-    df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
-    #use this as a index
-    df = df.reset_index()
-    df.set_index('position', inplace=True)
-    #we iterate over distance_df because it is much more computationally
-    #cheap to iterate over the smaller dataframe.
-    for index, row in distance_df_close.iterrows():
-        if row['res1'] in df.index and row['res2'] in df.columns:
-            df.loc[row['res1'], row['res2']] = np.nan
-            #we continie to use np.nan due as explained above.
-    #remove the position and reinstate mutations as the index.
-    df = df.set_index('mutations', drop=True)
+            else:
+                for atom in residue:
+                    if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
+                        atoms.append(atom)
+            if atoms:
+                residue_atoms[residue_id] = atoms
+    if not find_H:
+        print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the pairwise distance measurements")
 
-    #check if all where removed or continue the filtering.
-    if df.isna().all().all():
-        print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
-        exit(1)
-    else:
-        print(f"Filtered successfully on distance, removing sites closer than {distance_median*distance_threshold} Å.")
-        return df, distance_median
-
+    
 def filter_on_naccess(PDB, df, access_threshold):
     """
     A function that takes the PDB file and the dataframe produced by 
@@ -856,4 +736,4 @@ if args.pocket:
 if args.interface: 
     interface_file = args.interface
     interface_analysis(df, file, interface_file, PDB)
-    
+
