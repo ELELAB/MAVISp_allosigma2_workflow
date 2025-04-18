@@ -315,7 +315,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
     for residue in structure.get_residues():
         if Bio.PDB.is_aa(residue):
             residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
-            #create an list to store atom objects 
+            #create a list to store atom objects 
             atoms = []
             #handle glycine exception
             if residue.get_resname() == "GLY":
@@ -323,6 +323,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
                     if atom.element == "H" and atom.get_name().startswith("HA"):
                         atoms.append(atom)
                         find_H = True
+            #handle rest of the residues
             else:
                 for atom in residue:
                     if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
@@ -338,20 +339,28 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
     df = df.reset_index()
     df.set_index('position', inplace=True)
     #iterates over the df checking for non-NaN entries  
-    for mutation_site in df.index:
-        for response_site in df.columns:
-            if pd.isna(df.loc[mutation_site, response_site]):
+    for res1 in df.index:
+        for res2 in df.columns:
+            if pd.isna(df.loc[res1, res2]):
                 continue
-            atoms1 = residue_atoms.get(mutation_site)
-            atoms2 = residue_atoms.get(response_site)
+            atoms1 = residue_atoms.get(res1)
+            atoms2 = residue_atoms.get(res2)
             #chek for no empty list
             if atoms1 and atoms2:
-                #check all atom pairs until finds distance below thredshold 
-                if any((a1-a2) < distance_threshold for a1 in atoms1 for a2 in atoms2):
+                #check all atom pairs until finds distance below threshold 
+                if any((a1 - a2) < distance_threshold for a1 in atoms1 for a2 in atoms2):
                     #sets value to NaN
-                    df.loc[mutation_site, response_site] = np.nan                                 
+                    df.loc[res1, res2] = np.nan                                 
     #restore original index
     df = df.reset_index().set_index('mutations')                
+    
+    #check if all where removed or continue the filtering.
+    if df.isna().all().all():
+        print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
+        exit(1)
+    else:
+        print(f"Filtered successfully on distance, removing sites closer than {distance_threshold} Å.")
+        return df
 
 def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
     """
@@ -425,44 +434,43 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
         print(f"Filtered successfully on distance, removing sites closer than {distance_median*distance_threshold} Å.")
         return df, distance_median
 
-def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file):
+def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
-    and creates a dataframe with biopython measuring in CA distances. This is
-    used to filter out sites where the mutational site is closer than the
-    defined distance_threshold.
+    and filters out mutation–response site pairs where any side-chain heavy atoms
+    (or glycine sidechain hydrogen atoms) are closer than the defined threshold.
 
     Parameters
     ----------
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold.
     PDB : The PDB file name
-    disance_threshold: A float or integer that determines the minimum
+    distance_threshold: A float or integer that determines the minimum
     distance a long-range mutation is allowed to be.
 
     Returns
     -------
-    df : A dataframe where the local connection values are excluded.
+    df : A dataframe where the local connection values are excluded (set to NaN).
 
     """
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
-    #dictionary to store residue id and atoms coordinates
+    #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
-    #check if the structure has H atoms
+    #flag to check if the structure has hydrogen atoms
     find_H = False
-
     for residue in structure.get_residues():
         if Bio.PDB.is_aa(residue):
             residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
-            #create an empty list to store atom coordinates
+            #create an list to store atom objects
             atoms = []
-            #checks for glycine exception
+            #handle glycine exception
             if residue.get_resname() == "GLY":
                 for atom in residue:
                     if atom.element == "H" and atom.get_name().startswith("HA"):
                         atoms.append(atom)
                         find_H = True
+            #handle rest of the residues
             else:
                 for atom in residue:
                     if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
@@ -471,8 +479,46 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
                 residue_atoms[residue_id] = atoms
     if not find_H:
         print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the pairwise distance measurements")
+    #add a column to the df with the position of the mutation
+    df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
+    #use this as a index
+    df = df.reset_index()
+    df.set_index('position', inplace=True)
+    #calculate minimum distance
+    distance_data = []
+    #iterates over the df checking for non-NaN entries
+    for res1 in df.index:
+        for res2 in df.columns:
+            if pd.isna(df.loc[res1, res2]):
+                continue
+            #Load atom list for both residues    
+            atoms1 = residue_atoms.get(res1)
+            atoms2 = residue_atoms.get(res2)
+            if atoms1 and atoms2:
+                #calculate the shortest distance between every atom pair in the 2 residues
+                min_distance = min(a1 - a2 for a1 in atoms1 for a2 in atoms2)
+                distance_data.append((res1, res2, min_distance))
+    #Calculate the median distance 
+    all_min_distance = [d[2] for d in distance_data]
+    distance_median = np.median(all_min_distance)
+    threshold = distance_median * distance_threshold
+    print(f"Median Distance is {distance_median}, hence chosen distance is {threshold}")
+    #keep residue pairs closer than the threshold
+    close_distance_data = [d for d in distance_data if d[2]<= threshold]
+    #filter out residue pairs that are too close
+    for res1, res2, min_distance in close_distance_data:
+        if res1 in df.index and res2 in df.columns:
+            df.loc[res1, res2] = np.nan
+    #restore original index
+    df = df.reset_index().set_index('mutations')
+    #check if all where removed or continue the filtering.
+    if df.isna().all().all():
+        print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
+        exit(1)
+    else:
+        print(f"Filtered successfully on distance, removing sites closer than {threshold} Å.")
+        return df, distance_median
 
-    
 def filter_on_naccess(PDB, df, access_threshold):
     """
     A function that takes the PDB file and the dataframe produced by 
