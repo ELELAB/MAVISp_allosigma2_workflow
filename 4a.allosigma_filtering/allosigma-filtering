@@ -298,7 +298,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold.
     PDB : The PDB file name
-    disance_threshold: A float or integer that determines the minimum 
+    distance_threshold: A float or integer that determines the minimum 
     distance a long-range mutation is allowed to be.
 
     Returns
@@ -320,7 +320,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
             #handle glycine exception
             if residue.get_resname() == "GLY":
                 for atom in residue:
-                    if atom.element == "H" and atom.get_name().startswith("HA"):
+                    if atom.get_name().startswith("HA"):
                         atoms.append(atom)
                         find_H = True
             #handle rest of the residues
@@ -345,14 +345,13 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
                 continue
             atoms1 = residue_atoms.get(res1)
             atoms2 = residue_atoms.get(res2)
-            #chek for no empty list
             if atoms1 and atoms2:
                 #check all atom pairs until finds distance below threshold 
                 if any((a1 - a2) < distance_threshold for a1 in atoms1 for a2 in atoms2):
                     #sets value to NaN
                     df.loc[res1, res2] = np.nan                                 
-    #restore original index
-    df = df.reset_index().set_index('mutations')                
+    #remove the position and reinstance mutations as the index
+    df = df.set_index('mutations', drop=True)                
     
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
@@ -434,7 +433,7 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
         print(f"Filtered successfully on distance, removing sites closer than {distance_median*distance_threshold} Å.")
         return df, distance_median
 
-def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file):
+def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
     and filters out mutation–response site pairs where any side-chain heavy atoms
@@ -462,12 +461,12 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
     for residue in structure.get_residues():
         if Bio.PDB.is_aa(residue):
             residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
-            #create an list to store atom objects
+            #create a list to store atom objects
             atoms = []
             #handle glycine exception
             if residue.get_resname() == "GLY":
                 for atom in residue:
-                    if atom.element == "H" and atom.get_name().startswith("HA"):
+                    if atom.get_name().startswith("HA"):
                         atoms.append(atom)
                         find_H = True
             #handle rest of the residues
@@ -479,6 +478,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
                 residue_atoms[residue_id] = atoms
     if not find_H:
         print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the pairwise distance measurements")
+    
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
@@ -509,8 +509,9 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
     for res1, res2, min_distance in close_distance_data:
         if res1 in df.index and res2 in df.columns:
             df.loc[res1, res2] = np.nan
-    #restore original index
-    df = df.reset_index().set_index('mutations')
+    #remove the position and reinstate mutations as the index
+    df = df.set_index('mutations', drop=True)
+
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
