@@ -85,12 +85,12 @@ parser.add_argument('--pocket', action='store_true', help='Addition of pocket ba
 
 args = parser.parse_args()
 
-if args.distance_method == ["fraction", "sidechain_fraction"]:
+if args.distance_method in ["fraction", "sidechain_fraction"]:
     if args.fraction is None:
         parser.error("--fraction is required when distance_method is 'fraction' or 'sidechain_fraction")
     distance_threshold = args.fraction
 
-elif args.distance_method == ["value", "sidechain_value"]:
+elif args.distance_method in ["value", "sidechain_value"]:
     if args.value is None:
         parser.error("--value is required when distance_method is 'value' or 'sidechain_fraction")
     distance_threshold = args.value
