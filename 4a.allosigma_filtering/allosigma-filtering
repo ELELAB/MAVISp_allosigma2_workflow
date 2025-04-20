@@ -33,7 +33,7 @@ from Bio import BiopythonWarning
 warnings.simplefilter('ignore', BiopythonWarning)
 
 #allosigma-filtering -s {pdb_id} -i {up/down}_mutations.tsv 
-                        #-t {dG thresholdld} -d {distance threshold} 
+                        #-t {dG threshold} -d {distance threshold} 
                         #-a {access threshold}
 
 parser = argparse.ArgumentParser()
@@ -59,7 +59,7 @@ parser.add_argument("-t", '--threshold',
 parser.add_argument("-d", "--distance_method",
                     choices=["fraction", "value","sidechain_fraction","sidechain_value"],
                     required=True,
-                    help="Choose the method for setting the threshold: 'fraction' or 'value'")
+                    help="Choose the method for setting the threshold: 'fraction','value','sidesidechain_fraction','sidechain_value')
 
 parser.add_argument("-f", "--fraction",
                     type=float,
@@ -87,12 +87,12 @@ args = parser.parse_args()
 
 if args.distance_method in ["fraction", "sidechain_fraction"]:
     if args.fraction is None:
-        parser.error("--fraction is required when distance_method is 'fraction' or 'sidechain_fraction")
+        parser.error("--fraction is required when distance_method is 'fraction' or 'sidechain_fraction'")
     distance_threshold = args.fraction
 
 elif args.distance_method in ["value", "sidechain_value"]:
     if args.value is None:
-        parser.error("--value is required when distance_method is 'value' or 'sidechain_fraction")
+        parser.error("--value is required when distance_method is 'value' or 'sidechain_value'")
     distance_threshold = args.value
 
 dg_threshold = args.threshold  
@@ -258,7 +258,7 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
     #convert to a pandas dataframe. 
     distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
     #reduce distance_df to include only the residues close to each other 
-    #withon the distance_threshold:
+    #within the distance_threshold:
     distance_df_close = distance_df[distance_df.distance <= distance_threshold]
     #res1   res2    distance
     #W91    W91     0.0
@@ -287,7 +287,7 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
         print(f"Filtered successfully on distance, removing sites closer than {distance_threshold} Å.")
         return df
 
-def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file):
+def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
     and filters out mutation–response site pairs where any side-chain heavy atoms
@@ -347,7 +347,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
             atoms2 = residue_atoms.get(res2)
             if atoms1 and atoms2:
                 #check all atom pairs until finds distance below threshold 
-                if any((a1 - a2) < distance_threshold for a1 in atoms1 for a2 in atoms2):
+                if any((a1 - a2) <= distance_threshold for a1 in atoms1 for a2 in atoms2):
                     #sets value to NaN
                     df.loc[res1, res2] = np.nan                                 
     #remove the position and reinstance mutations as the index
@@ -404,7 +404,7 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
     threshold = distance_median * distance_threshold
     print(f"Median Distance is {distance_median}, hence choosen distance is {distance_median*distance_threshold}")
     #reduce distance_df to include only the residues close to each other 
-    #withon the distance_threshold:
+    #within the distance_threshold:
     distance_df_close = distance_df[distance_df.distance <= threshold]
     #res1   res2    distance
     #W91    W91     0.0
@@ -433,7 +433,7 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
         print(f"Filtered successfully on distance, removing sites closer than {distance_median*distance_threshold} Å.")
         return df, distance_median
 
-def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file):
+def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
     and filters out mutation–response site pairs where any side-chain heavy atoms
@@ -504,7 +504,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
     threshold = distance_median * distance_threshold
     print(f"Median Distance is {distance_median}, hence chosen distance is {threshold}")
     #keep residue pairs closer than the threshold
-    close_distance_data = [d for d in distance_data if d[2]<= threshold]
+    close_distance_data = [d for d in distance_data if d[2] <= threshold]
     #filter out residue pairs that are too close
     for res1, res2, min_distance in close_distance_data:
         if res1 in df.index and res2 in df.columns:
@@ -771,9 +771,9 @@ if args.distance_method == "fraction":
 elif args.distance_method == "value":
     df = filter_on_distance_value_biopython(PDB, df, distance_threshold, file)
 elif args.distance_method == "sidechain_fraction":
-    df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file)
+    df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
 elif args.distance_method == "sidechain_value":
-    df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file)
+    df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold)
 
 output_file(df, file)
 
