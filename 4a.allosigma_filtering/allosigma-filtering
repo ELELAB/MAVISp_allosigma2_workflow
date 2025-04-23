@@ -331,8 +331,8 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
             if atoms:
                 residue_atoms[residue_id] = atoms
     if not find_H:
-        print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the pairwise distance measurements")
-    
+        print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the distance measurements")
+        exit(1)
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
@@ -478,7 +478,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
                 residue_atoms[residue_id] = atoms
     if not find_H:
         print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the pairwise distance measurements")
-    
+        exit(1)
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
