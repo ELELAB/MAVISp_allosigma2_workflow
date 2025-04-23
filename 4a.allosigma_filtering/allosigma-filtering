@@ -310,19 +310,23 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
-    #flag to check if the structure has hydrogen atoms
-    find_H = False
+    #flag to check if all glycines have hydrogen atoms
+    all_gly_have_H = True
     for residue in structure.get_residues():
         if Bio.PDB.is_aa(residue):
             residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
-            #create a list to store atom objects 
+            #list to store atom objects 
             atoms = []
             #handle glycine exception
             if residue.get_resname() == "GLY":
+                #flag to check if each glycine has hydrogen atoms 
+                find_H = False
                 for atom in residue:
                     if atom.get_name().startswith("HA"):
                         atoms.append(atom)
                         find_H = True
+                if not find_H:
+                    all_gly_have_H = False
             #handle rest of the residues
             else:
                 for atom in residue:
@@ -330,9 +334,11 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                         atoms.append(atom)
             if atoms:
                 residue_atoms[residue_id] = atoms
-    if not find_H:
-        print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the distance measurements")
+    #exit if any glycine its missing its hydrogen atoms
+    if not all_gly_have_H:
+        print("WARNING: One or more glycines are missing hydrogen atoms. Exiting...")
         exit(1)
+
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
@@ -456,19 +462,23 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
-    #flag to check if the structure has hydrogen atoms
-    find_H = False
+    #flag to check if all glycines have hydrogen atoms
+    all_gly_have_H = True
     for residue in structure.get_residues():
         if Bio.PDB.is_aa(residue):
             residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
-            #create a list to store atom objects
+            #list to store atom objects
             atoms = []
             #handle glycine exception
             if residue.get_resname() == "GLY":
+                #flag to check if each glycine has hydrogen atoms
+                find_H = False
                 for atom in residue:
                     if atom.get_name().startswith("HA"):
                         atoms.append(atom)
                         find_H = True
+                if not find_H:
+                    all_gly_have_H = False
             #handle rest of the residues
             else:
                 for atom in residue:
@@ -476,9 +486,11 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
                         atoms.append(atom)
             if atoms:
                 residue_atoms[residue_id] = atoms
-    if not find_H:
-        print("Warning: No hydrogen atoms in the PDB structure. Glycines will be excluded from the pairwise distance measurements")
+    #exit if any glycine is missing its hydrogen atoms
+    if not all_gly_have_H:
+        print("WARNING: One or more glycines are missing hydrogen atoms. Exiting...")
         exit(1)
+
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
