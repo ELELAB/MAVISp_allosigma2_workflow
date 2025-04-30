@@ -308,9 +308,12 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     """
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
+    #check if the structure contains only one chain
+    if sum(1 for chain in structure.get_chains()) != 1:
+        raise ValueError("Only single-chain structures can be supported.")
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
-    for residue in structure.get_residues(-:
+    for residue in structure.get_residues():
         if not Bio.PDB.is_aa(residue):
             continue
         #list to store atom objects 
@@ -319,8 +322,10 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
         if residue.get_resname() == "GLY":
             H_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3"}]
             if len(H_atoms) != 2:
-                print("WARNING: Incomplete structure, glycine missing H. Exiting...")
-                exit(1)
+                raise ValueError(
+                    f"Incomplete structure. Glycine at position "
+                    f"residue.get_id()[1]} is missing H atoms."
+                    )
             atoms.extend(H_atoms)
         #handle rest of the residues
         else:              
@@ -328,8 +333,10 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                 if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
                     atoms.append(atom)
                 if not atoms:
-                    print("WARNING: Incomplete structure, residue missing side-chain atoms. Exiting...")
-                    exit(1)
+                    raise ValueError
+                        f"Incomplete structure. Residue at position "
+                        f"{residue.get_id()[1]} is missing side-chain atoms."
+                        )
         #store residue ID and atoms
         residue_id = f"{PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
@@ -455,9 +462,38 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
     """
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
+    #check if the structure contains only one chain
+    if sum(1 for chain in structure.get_chains()) != 1:
+        raise ValueError("Only single-chain structures can be supported.")
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
-    
+    for residue in structure.get_residues():
+        if not Bio.PDB.is_aa(residue):
+            continue
+        #list to store atom objects
+        atoms = []
+        #handle glycine exception
+        if residue.get_resname() == "GLY":
+            H_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3"}]
+            if len(H_atoms) != 2:
+                raise ValueError(
+                    f"Incomplete structure. Glycine at position "
+                    f"residue.get_id()[1]} is missing H atoms."
+                    )
+            atoms.extend(H_atoms)
+        #handle rest of the residues
+        else:
+            for atom in residue:
+                if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
+                    atoms.append(atom)
+                if not atoms:
+                    raise ValueError
+                        f"Incomplete structure. Residue at position "
+                        f"{residue.get_id()[1]} is missing side-chain atoms."
+                        )
+        #store residue ID and atoms
+        residue_id = f"{PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
+        residue_atoms[residue_id] = atoms
 
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
