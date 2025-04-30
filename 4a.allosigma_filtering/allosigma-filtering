@@ -310,7 +310,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
-    for residue in structure.get_residues():
+    for residue in structure.get_residues(-:
         if not Bio.PDB.is_aa(residue):
             continue
         #list to store atom objects 
@@ -323,14 +323,17 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                 exit(1)
             atoms.extend(H_atoms)
         #handle rest of the residues
-        else:
+        else:              
             for atom in residue:
                 if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
                     atoms.append(atom)
-        if atoms:
-            residue_id = f"{PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
-            residue_atoms[residue_id] = atoms
-    
+                if not atoms:
+                    print("WARNING: Incomplete structure, residue missing side-chain atoms. Exiting...")
+                    exit(1)
+        #store residue ID and atoms
+        residue_id = f"{PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
+        residue_atoms[residue_id] = atoms
+
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
