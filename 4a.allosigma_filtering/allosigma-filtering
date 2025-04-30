@@ -324,7 +324,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
             if len(H_atoms) != 2:
                 raise ValueError(
                     f"Incomplete structure. Glycine at position "
-                    f"residue.get_id()[1]} is missing H atoms."
+                    f"{residue.get_id()[1]} is missing H atoms."
                     )
             atoms.extend(H_atoms)
         #handle rest of the residues
@@ -332,13 +332,13 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
             for atom in residue:
                 if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
                     atoms.append(atom)
-                if not atoms:
-                    raise ValueError
-                        f"Incomplete structure. Residue at position "
-                        f"{residue.get_id()[1]} is missing side-chain atoms."
-                        )
+            if not atoms:
+                raise ValueError(
+                    f"Incomplete structure. Residue at position "
+                    f"{residue.get_id()[1]} is missing side-chain atoms."
+                    )
         #store residue ID and atoms
-        residue_id = f"{PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
+        residue_id = f"{Bio.PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
 
     #add a column to the df with the position of the mutation
@@ -478,7 +478,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
             if len(H_atoms) != 2:
                 raise ValueError(
                     f"Incomplete structure. Glycine at position "
-                    f"residue.get_id()[1]} is missing H atoms."
+                    f"{residue.get_id()[1]} is missing H atoms."
                     )
             atoms.extend(H_atoms)
         #handle rest of the residues
@@ -486,13 +486,13 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
             for atom in residue:
                 if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
                     atoms.append(atom)
-                if not atoms:
-                    raise ValueError
-                        f"Incomplete structure. Residue at position "
-                        f"{residue.get_id()[1]} is missing side-chain atoms."
-                        )
+            if not atoms:
+                raise ValueError(
+                    f"Incomplete structure. Residue at position "
+                    f"{residue.get_id()[1]} is missing side-chain atoms."
+                    )
         #store residue ID and atoms
-        residue_id = f"{PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
+        residue_id = f"{Bio.PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
 
     #add a column to the df with the position of the mutation
