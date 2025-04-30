@@ -310,35 +310,27 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
-    #flag to check if all glycines have hydrogen atoms
-    all_gly_have_H = True
     for residue in structure.get_residues():
-        if Bio.PDB.is_aa(residue):
-            residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
-            #list to store atom objects 
-            atoms = []
-            #handle glycine exception
-            if residue.get_resname() == "GLY":
-                #flag to check if each glycine has hydrogen atoms 
-                find_H = False
-                for atom in residue:
-                    if atom.get_name().startswith("HA"):
-                        atoms.append(atom)
-                        find_H = True
-                if not find_H:
-                    all_gly_have_H = False
-            #handle rest of the residues
-            else:
-                for atom in residue:
-                    if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
-                        atoms.append(atom)
-            if atoms:
-                residue_atoms[residue_id] = atoms
-    #exit if any glycine its missing its hydrogen atoms
-    if not all_gly_have_H:
-        print("WARNING: One or more glycines are missing hydrogen atoms. Exiting...")
-        exit(1)
-
+        if not Bio.PDB.is_aa(residue):
+            continue
+        #list to store atom objects 
+        atoms = []
+        #handle glycine exception
+        if residue.get_resname() == "GLY":
+            H_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3"}]
+            if len(H_atoms) != 2:
+                print("WARNING: Incomplete structure, glycine missing H. Exiting...")
+                exit(1)
+            atoms.extend(H_atoms)
+        #handle rest of the residues
+        else:
+            for atom in residue:
+                if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
+                    atoms.append(atom)
+        if atoms:
+            residue_id = f"{PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
+            residue_atoms[residue_id] = atoms
+    
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
@@ -357,7 +349,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                     #sets value to NaN
                     df.loc[res1, res2] = np.nan                                 
     #remove the position and reinstance mutations as the index
-    df = df.set_index('mutations', drop=True)                
+    df = df.set _index('mutations', drop=True)                
     
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
@@ -462,34 +454,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
-    #flag to check if all glycines have hydrogen atoms
-    all_gly_have_H = True
-    for residue in structure.get_residues():
-        if Bio.PDB.is_aa(residue):
-            residue_id = f"{seq1(residue.get_resname())}{residue.get_id()[1]}"
-            #list to store atom objects
-            atoms = []
-            #handle glycine exception
-            if residue.get_resname() == "GLY":
-                #flag to check if each glycine has hydrogen atoms
-                find_H = False
-                for atom in residue:
-                    if atom.get_name().startswith("HA"):
-                        atoms.append(atom)
-                        find_H = True
-                if not find_H:
-                    all_gly_have_H = False
-            #handle rest of the residues
-            else:
-                for atom in residue:
-                    if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
-                        atoms.append(atom)
-            if atoms:
-                residue_atoms[residue_id] = atoms
-    #exit if any glycine is missing its hydrogen atoms
-    if not all_gly_have_H:
-        print("WARNING: One or more glycines are missing hydrogen atoms. Exiting...")
-        exit(1)
+    
 
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
