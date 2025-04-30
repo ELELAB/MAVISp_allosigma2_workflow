@@ -359,7 +359,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                     #sets value to NaN
                     df.loc[res1, res2] = np.nan                                 
     #remove the position and reinstance mutations as the index
-    df = df.set _index('mutations', drop=True)                
+    df = df.set_index('mutations', drop=True)                
     
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
