@@ -309,7 +309,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #check if the structure contains only one chain
-    if sum(1 for chain in structure.get_chains()) != 1:
+    if len(list(structure.get_chains())) != 1:
         raise ValueError("Only single-chain structures can be supported.")
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
@@ -463,7 +463,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #check if the structure contains only one chain
-    if sum(1 for chain in structure.get_chains()) != 1:
+    if len(list(structure.get_chains())) != 1:
         raise ValueError("Only single-chain structures can be supported.")
     #dictionary to store residue id and corresponding atom objects
     residue_atoms = {}
