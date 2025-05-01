@@ -59,7 +59,7 @@ parser.add_argument("-t", '--threshold',
 parser.add_argument("-d", "--distance_method",
                     choices=["fraction", "value","sidechain_fraction","sidechain_value"],
                     required=True,
-                    help="Choose the method for setting the threshold: 'fraction','value','sidesidechain_fraction','sidechain_value')
+                    help="Choose the method for setting the threshold:'fraction','value','sidesidechain_fraction','sidechain_value'")
 
 parser.add_argument("-f", "--fraction",
                     type=float,
@@ -353,19 +353,19 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                 continue
             atoms1 = residue_atoms.get(res1)
             atoms2 = residue_atoms.get(res2)
-            if atoms1 and atoms2:
-                #check all atom pairs until finds distance below threshold 
-                if any((a1 - a2) <= distance_threshold for a1 in atoms1 for a2 in atoms2):
-                    #sets value to NaN
-                    df.loc[res1, res2] = np.nan                                 
+            #check all atom pairs until finds distance below threshold 
+            if any((a1 - a2) <= distance_threshold for a1 in atoms1 for a2 in atoms2):
+                #sets value to NaN
+                df.loc[res1, res2] = np.nan                                 
     #remove the position and reinstance mutations as the index
     df = df.set_index('mutations', drop=True)                
-    
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
         exit(1)
     else:
+        df = df.dropna(axis=1, how="all")
+        df = df.dropna(axis=0, how="all")        
         print(f"Filtered successfully on distance, removing sites closer than {distance_threshold} Å.")
         return df
 
@@ -510,10 +510,9 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
             #Load atom list for both residues    
             atoms1 = residue_atoms.get(res1)
             atoms2 = residue_atoms.get(res2)
-            if atoms1 and atoms2:
-                #calculate the shortest distance between every atom pair in the 2 residues
-                min_distance = min(a1 - a2 for a1 in atoms1 for a2 in atoms2)
-                distance_data.append((res1, res2, min_distance))
+            #calculate the shortest distance between every atom pair in the 2 residues
+            min_distance = min(a1 - a2 for a1 in atoms1 for a2 in atoms2)
+            distance_data.append((res1, res2, min_distance))
     #Calculate the median distance 
     all_min_distance = [d[2] for d in distance_data]
     distance_median = np.median(all_min_distance)
@@ -525,14 +524,15 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
     for res1, res2, min_distance in close_distance_data:
         if res1 in df.index and res2 in df.columns:
             df.loc[res1, res2] = np.nan
-    #remove the position and reinstate mutations as the index
+    #remove the position and reset mutations as the index
     df = df.set_index('mutations', drop=True)
-
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
         exit(1)
     else:
+        df = df.dropna(axis=1, how="all")
+        df = df.dropna(axis=0, how="all")
         print(f"Filtered successfully on distance, removing sites closer than {threshold} Å.")
         return df, distance_median
 
