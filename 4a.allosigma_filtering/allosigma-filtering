@@ -359,13 +359,14 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                 df.loc[res1, res2] = np.nan                                 
     #remove the position and reinstance mutations as the index
     df = df.set_index('mutations', drop=True)                
+    #drop columns and rows where there are no values.
+    df = df.dropna(axis=1, how="all")
+    df = df.dropna(axis=0, how="all")
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
         exit(1)
-    else:
-        df = df.dropna(axis=1, how="all")
-        df = df.dropna(axis=0, how="all")        
+    else:       
         print(f"Filtered successfully on distance, removing sites closer than {distance_threshold} Å.")
         return df
 
@@ -526,13 +527,14 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
             df.loc[res1, res2] = np.nan
     #remove the position and reset mutations as the index
     df = df.set_index('mutations', drop=True)
+    #drop columns and rows where there are no values.
+    df = df.dropna(axis=1, how="all")
+    df = df.dropna(axis=0, how="all")
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
         exit(1)
     else:
-        df = df.dropna(axis=1, how="all")
-        df = df.dropna(axis=0, how="all")
         print(f"Filtered successfully on distance, removing sites closer than {threshold} Å.")
         return df, distance_median
 
