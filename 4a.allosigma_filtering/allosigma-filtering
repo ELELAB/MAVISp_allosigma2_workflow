@@ -351,8 +351,8 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
         for res2 in df.columns:
             if pd.isna(df.loc[res1, res2]):
                 continue
-            atoms1 = residue_atoms.get(res1)
-            atoms2 = residue_atoms.get(res2)
+            atoms1 = residue_atoms[res1]
+            atoms2 = residue_atoms[res2]
             #check all atom pairs until finds distance below threshold 
             if any((a1 - a2) <= distance_threshold for a1 in atoms1 for a2 in atoms2):
                 #sets value to NaN
@@ -508,8 +508,8 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
             if pd.isna(df.loc[res1, res2]):
                 continue
             #Load atom list for both residues    
-            atoms1 = residue_atoms.get(res1)
-            atoms2 = residue_atoms.get(res2)
+            atoms1 = residue_atoms[res1]
+            atoms2 = residue_atoms[res2]
             #calculate the shortest distance between every atom pair in the 2 residues
             min_distance = min(a1 - a2 for a1 in atoms1 for a2 in atoms2)
             distance_data.append((res1, res2, min_distance))
