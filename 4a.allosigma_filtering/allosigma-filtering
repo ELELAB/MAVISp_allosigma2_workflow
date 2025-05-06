@@ -784,14 +784,20 @@ df = filter_on_naccess(PDB, df, access_threshold)
 df = df.dropna(axis=1, how='all')
 df = df.dropna(axis=0, how="all") 
 
+
 if args.distance_method == "fraction":
     df, distance_median = filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file)
 elif args.distance_method == "value":
     df = filter_on_distance_value_biopython(PDB, df, distance_threshold, file)
-elif args.distance_method == "sidechain_fraction":
-    df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
-elif args.distance_method == "sidechain_value":
-    df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold)
+elif args.distance_method in {"sidechain_fraction", "sidechain_value"}:
+    try:
+        if arg.distance_method == "sidechain_fraction":
+            df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
+        elif args.distance_method == "sidechain_value":
+            df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold)
+    except ValueError as error:
+        print(f"Error in sidechain distance filtering:{error}")
+        exit(1)
 
 output_file(df, file)
 
