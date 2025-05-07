@@ -340,12 +340,14 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
         #store residue ID and atoms
         residue_id = f"{Bio.PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
-
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
-    #use this as a index
+    #turn the index "mutations" into a column 
     df = df.reset_index()
+    #set position as new index
     df.set_index('position', inplace=True)
+    #remove mutations column and store it.
+    mutations_column = df.pop("mutations")
     #iterates over the df checking for non-NaN entries  
     for res1 in df.index:
         for res2 in df.columns:
@@ -358,7 +360,8 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                 #sets value to NaN
                 df.loc[res1, res2] = np.nan                                 
     #remove the position and reinstance mutations as the index
-    df = df.set_index('mutations', drop=True)                
+    df["mutations"] = mutations_column.values
+    df.set_index("mutations", inplace=True)
     #drop columns and rows where there are no values.
     df = df.dropna(axis=1, how="all")
     df = df.dropna(axis=0, how="all")
@@ -495,12 +498,14 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
         #store residue ID and atoms
         residue_id = f"{Bio.PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
-
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
-    #use this as a index
+    #turn the index "mutations" into a column
     df = df.reset_index()
+    #set position as new index
     df.set_index('position', inplace=True)
+    #remove mutations column and store it.
+    mutations_column = df.pop("mutations")    
     #calculate minimum distance
     distance_data = []
     #iterates over the df checking for non-NaN entries
@@ -525,8 +530,9 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
     for res1, res2, min_distance in close_distance_data:
         if res1 in df.index and res2 in df.columns:
             df.loc[res1, res2] = np.nan
-    #remove the position and reset mutations as the index
-    df = df.set_index('mutations', drop=True)
+    #remove position column and reinstance mutations as the index
+    df["mutations"] = mutations_column.values
+    df.set_index("mutations", inplace=True)    
     #drop columns and rows where there are no values.
     df = df.dropna(axis=1, how="all")
     df = df.dropna(axis=0, how="all")
@@ -791,7 +797,7 @@ elif args.distance_method == "value":
     df = filter_on_distance_value_biopython(PDB, df, distance_threshold, file)
 elif args.distance_method in {"sidechain_fraction", "sidechain_value"}:
     try:
-        if arg.distance_method == "sidechain_fraction":
+        if args.distance_method == "sidechain_fraction":
             df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
         elif args.distance_method == "sidechain_value":
             df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold)
