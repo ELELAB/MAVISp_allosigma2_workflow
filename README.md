@@ -148,11 +148,11 @@ This script takes
 - a dG cutoff value (in kcal/mol)
 - a Distance cutoff: 
 	Two distance calculation methods are available:
-	- Cα–Cα distances 
+	- Cα–Cα distances  
 	- Side-chain heavy atom distances (Glycine uses HA2/HA3) 
-	Each method supports two threshold modes:
+	Each distance method supports two threshold modes:
 	- Value: a specific value (in Å - e.g. 14) 
-	- Faction: a fraction of the median (e.g. 0.9)
+	- Fraction: a fraction of the median (e.g. 0.9)
 	The method and the mode are selected using the -d flag, with four possible options:
 	 Option               | Description                                       | Example                          |
 	|-----------------------|---------------------------------------------------|----------------------------------|
