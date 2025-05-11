@@ -120,6 +120,13 @@ def plot_matrix(ax, mat, xlabels, ylabels, cmap, title=None, vmin=None, vmax=Non
     ax.set_title(title)
     ax.autoscale(False)
 
+#Calculate delta H from delta G
+def calculate_dh_from_dg(dg_matrix, fill_value=0):
+    row_means = np.nanmean(dg_matrix, axis=1, keepdims=True)
+    dh_matrix = dg_matrix - row_means
+    dh_matrix = np.where(np.isnan(dh_matrix), fill_value, dh_matrix)
+    return dh_matrix 
+
 matplotlib.rcParams['font.family'] = 'sans-serif'
 matplotlib.rcParams['font.sans-serif'] = [ 'Arial' ]
 matplotlib.rcParams['axes.unicode_minus'] = False
@@ -135,6 +142,7 @@ parser.add_argument('-y', '--svy', dest='sv_y', help='how many rows to keep for 
 parser.add_argument('-f', '--font-size', dest='fs', help='font size (default: 8)', default=8, type=float)
 parser.add_argument('-c', '--color-map', dest='cmap', help='color map to be used in plotting (default: coolwarm', default='coolwarm', type=str)
 parser.add_argument('-t', '--transpose', dest='transpose', help='transpose plotted matrices', default=False, action='store_true')
+parser.add_argument('--mode', dest='mode', default='dg', choices=['dg', 'dh'])
 
 args = parser.parse_args()
 
@@ -227,6 +235,25 @@ dg_down = dg_down.set_index('mutations')
 dg_up_ar = dg_up.to_numpy()
 dg_down_ar = dg_down.to_numpy()
 
+# transpose dataframes if requested
+if args.transpose:
+    dg_up = dg_up.transpose()
+    dg_down = dg_down.transpose()
+
+# Calculate delta H if requested
+if args.mode == 'dh':
+    # calculate delta H matrices from delta G arrays
+    dh_up_ar = calculate_dh_from_dg(dg_up_ar)
+    dh_down_ar = calculate_dh_from_dg(dg_down_ar)
+
+    # create dataframes with data from the delta H UP and DOWN response matrices
+    dh_up = pd.DataFrame(dh_up_ar, index=dg_up.index, columns=dg_up.columns)
+    dh_down = pd.DataFrame(dh_down_ar, index=dg_down.index, columns=dg_down.columns)
+
+    # transpose dataframes if requested
+    if args.transpose:
+        dh_up = dh_up.transpose()
+        dh_down = dh_down.transpose()
 
 # splice data into blocks for plotting and plot
 spliced_data = splice_data(dg_up_ar, 
@@ -235,13 +262,17 @@ spliced_data = splice_data(dg_up_ar,
                            args.sv_x, args.sv_y)
 
 # workaround for minus in colorbar not showing
+
+# Define label symbol based on mode
+label_symbol = 'g' if args.mode == 'dg' else 'H'
+
 if args.plot: 
     for i in range(len(spliced_data)):
         for j in range(len(spliced_data[i])):
             fig, ax = plt.subplots()
             plot_matrix(ax=ax, mat=spliced_data[i][j][0], xlabels=spliced_data[i][j][1], ylabels=spliced_data[i][j][2],
                         cmap="coolwarm", title="UP mutations", vmin=np.min(dg_up_ar), vmax=np.max(dg_up_ar),
-                        fontsize=args.fs, heatmap_label=r'$\Delta{}g^{UP}$ (kcal/mol)', transpose=args.transpose)
+                        fontsize=args.fs, heatmap_label=rf'$\Delta{{{label_symbol}}}^{{UP}}$ (kcal/mol)', transpose=args.transpose)
             if args.transpose:
                 plt.savefig(f"UP_mutations_x{j+1}_y{i+1}.pdf")
             else:
@@ -253,24 +284,27 @@ spliced_data = splice_data(dg_down_ar,
                             dg_down.index.tolist(),
                             args.sv_x, args.sv_y)
 
+# Define label symbol based on mode
+label_symbol = 'g' if args.mode == 'dg' else 'H'
+
 if args.plot: 
     for i in range(len(spliced_data)):
         for j in range(len(spliced_data[i])):
             fig, ax = plt.subplots()
             plot_matrix(ax=ax, mat=spliced_data[i][j][0], xlabels=spliced_data[i][j][1], ylabels=spliced_data[i][j][2],
                         cmap="coolwarm", title="DOWN mutations", vmin=np.min(dg_up_ar), vmax=np.max(dg_up_ar),
-                        fontsize=args.fs, heatmap_label=r'$\Delta{}g^{DOWN}$ (kcal/mol)', transpose=args.transpose)
+                        fontsize=args.fs, heatmap_label=rf'$\Delta{{{label_symbol}}}^{{DOWN}}$ (kcal/mol)', transpose=args.transpose)
             if args.transpose:
                 plt.savefig(f"DOWN_mutations_x{i+1}_y{j+1}.pdf")
             else:
                 plt.savefig(f"DOWN_mutations_x{j+1}_y{i+1}.pdf")
             plt.clf()
 
-# transpose dataframes if requested
-if args.transpose:
-    dg_up = dg_up.transpose()
-    dg_down = dg_down.transpose()
 
-# write csv files
-dg_up.to_csv('up_mutations.tsv', sep='\t')
-dg_down.to_csv('down_mutations.tsv', sep='\t')
+# Save matrices based on mode
+if args.mode == 'dg':
+    dg_up.to_csv('up_mutations.tsv', sep='\t')
+    dg_down.to_csv('down_mutations.tsv', sep='\t')
+elif args.mode == 'dh':
+    dh_up.to_csv('dh_up_mutations.tsv', sep='\t')
+    dh_down.to_csv('dh_down_mutations.tsv', sep='\t')
