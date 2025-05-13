@@ -2,7 +2,12 @@
 Collection of scripts for validating mutation-response site predictions identified with Allosigma using PSN path_analysis
 
 N.B. Filtering of Allosigma UP/DOWN predictions must have been performed prior \
+
 N.B. acPSN must have been constructed prior
+
+N.B. If non-typical residue nomenclature is used in simualation PDB (reference_A.pdb) then those need to be corrected
+Otherwise the module will not be able to identify them due to differences in nomenclature from the simple mode output. 
+i.e. HSE should be change to HIS
 
 ## Requirements
 ### Environment
@@ -30,12 +35,12 @@ First the mutants and respective predicted response sites are extracted, written
 ### Usage
 ``mut_extract.py [-h] -up INPUT_FILE_UP -down INPUT_FILE_DOWN -out
                              OUTPUT_FILE -pdb PDB_FILE
-                             [--filter_file FILTER_FILE]``
+                             [--filter_file FILTER_FILE]
+                             [-chain CHAIN_ID]``
 ### Options
 - Include a text file specifying variants of interest to filter only for those, format of variants should follow X000X.
 
 ### Output 
-- PML directory containing scripts if one want to visually inspect the predictions and manually exclude 
 - TSV file containing mutants and respective affected pocket residues.
 
 ## Generate Bash Script

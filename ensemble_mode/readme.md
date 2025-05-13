@@ -4,7 +4,7 @@
 
 This repository contains a collection of scripts designed to validate mutation-response site predictions identified with Allosigma using Protein-Structure Network (PSN) path analysis. This workflow integrates molecular dynamics (MD) simulations to enhance prediction accuracy by accounting for protein flexibility and persistent long-range interactions.
 
-N.B. This workflow has been designed for a single-chain protein. 
+N.B. This workflow has been designed for a single-chain protein. (default chain ID used is A) 
 
 ### acPSN Construction 
 #### Description
@@ -23,6 +23,8 @@ Input:
 
 N.B. If your simulation also includes other non-canonical residues and you have used GROMACS, you will need the file in which you have specified the residue types (e.g. residuetypes.dat) and carry it over for this analysis.
 
+N.B. The non-canonical residues such as HSE for HIS must be renamed prior to running the next step, otherwise the residue check will filter out these residues. 
+
 Output: 
 - acPSN graph
 - log text file 
@@ -38,9 +40,8 @@ The following analysis is meant to take place in a nested directory within the o
 Within the first script of the workflow, `mut_extract.py`, the script will perform a quality check of the input files
 `filtered_up_pockets.tsv` and `filtered_down_pockets.tsv`, looking at the following:
 - input mutation sites and response sites are within the provided PDB structure
-- input mutations sites and response sites satisfy the chosen distance threshold 
 
-Here the user can also elect to include/filter the mutation sites and response sites by including a text file, using flag `-filter_file` or to change the distance threshold from default 15A by flag `-dist_threshold`. 
+Here the user can also elect to include/filter the mutation sites by including a text file, using flag `-filter_file`. 
 
 #### PSN analysis 
 The workflow will make a directory per each mutation site included in the analysis, wherein the PyInteraph path_analysis tool will be used to identify shortest paths of communication to the response sites. 
