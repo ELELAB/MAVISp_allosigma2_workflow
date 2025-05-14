@@ -55,6 +55,21 @@ def allosigma_to_position(pos):
 def allosigma_to_resnums(pos):
     return int(f"{pos.split('.')[0][3:]}")
 
+
+def calculate_dh_from_dg(dg_matrix, fill_value=0):
+    """
+    Calculate ΔH from ΔG using mean-centering across rows.
+    Parameters:
+        dg_matrix (np.ndarray): Input ΔG matrix.
+        fill_value (float): Value used to replace NaNs after centering.
+    Returns:
+        np.ndarray: Centered ΔH matrix.
+    """
+    row_means = np.nanmean(dg_matrix, axis=1, keepdims=True)
+    dh_matrix = dg_matrix - row_means
+    dh_matrix = np.where(np.isnan(dh_matrix), fill_value, dh_matrix)
+    return dh_matrix
+
 def heatmap_labels(mutations, labels, classification):
     this_muts = mutations[mutations['allosigma-mode'] == classification]
     this_muts['mutation'] = this_muts['wt_residue'] + this_muts['position'].astype(str) + this_muts['mutated_residue']
@@ -135,8 +150,12 @@ parser.add_argument('-y', '--svy', dest='sv_y', help='how many rows to keep for 
 parser.add_argument('-f', '--font-size', dest='fs', help='font size (default: 8)', default=8, type=float)
 parser.add_argument('-c', '--color-map', dest='cmap', help='color map to be used in plotting (default: coolwarm', default='coolwarm', type=str)
 parser.add_argument('-t', '--transpose', dest='transpose', help='transpose plotted matrices', default=False, action='store_true')
+parser.add_argument('-m', '--mode', default='dg', choices=['dg', 'dh'], help='choose whether to plot/calculate dH or use default dG')
 
 args = parser.parse_args()
+
+label_symbol = 'g' if args.mode == 'dg' else 'H'
+prefix = 'dg' if args.mode == 'dg' else 'dh'
 
 
 # read mutations file
@@ -205,6 +224,10 @@ mutations = mutations[ ~ mutations['allosigma-mode'].isna() ]
 # add mutid column with our identifier (e.g. C306)
 mutations['mutid'] = mutations.apply(lambda x: f"{x['wt_residue']}{x['position']}", axis=1)
 
+if mutations.empty:
+    print("Warning: No valid mutations found after filtering.")
+    exit(1)
+
 # isolate DOWN and UP mutations
 mutations_up   = mutations[ mutations['allosigma-mode'] == 'UP'   ]
 mutations_down = mutations[ mutations['allosigma-mode'] == 'DOWN' ]
@@ -217,6 +240,10 @@ dg_down = dg_down[ dg_down.index.isin(mutations_down['mutid'])]
 dg_up  =  dg_up.filter(response_positions, axis=1)
 dg_down = dg_down.filter(response_positions, axis=1)
 
+if dg_up.empty or dg_down.empty:
+    print("Warning: No data to plot. Check filters.")
+    exit()
+
 # turn mutation labels from positions to lists of mutation
 dg_up['mutations']   = heatmap_labels(mutations_up, dg_up.index.to_list(), 'UP')
 dg_down['mutations'] = heatmap_labels(mutations_down, dg_down.index.to_list(), 'DOWN')
@@ -227,50 +254,68 @@ dg_down = dg_down.set_index('mutations')
 dg_up_ar = dg_up.to_numpy()
 dg_down_ar = dg_down.to_numpy()
 
+if args.mode == 'dh':
+        dh_up_ar = calculate_dh_from_dg(dg_up_ar)
+        dh_down_ar = calculate_dh_from_dg(dg_down_ar)
+        dh_up = pd.DataFrame(dh_up_ar, index=dg_up.index, columns=dg_up.columns)
+        dh_down = pd.DataFrame(dh_down_ar, index=dg_down.index, columns=dg_down.columns)
+
+plot_up_ar = dg_up_ar if args.mode == 'dg' else dh_up_ar
+plot_down_ar = dg_down_ar if args.mode == 'dg' else dh_down_ar
 
 # splice data into blocks for plotting and plot
-spliced_data = splice_data(dg_up_ar, 
+spliced_data = splice_data(plot_up_ar, 
                            dg_up.columns.tolist(),
                            dg_up.index.tolist(), 
                            args.sv_x, args.sv_y)
 
 # workaround for minus in colorbar not showing
+heatmap_lab_down = r'$\Delta{}' + label_symbol + r'^{UP}$ (kcal/mol)'
 if args.plot: 
     for i in range(len(spliced_data)):
         for j in range(len(spliced_data[i])):
             fig, ax = plt.subplots()
             plot_matrix(ax=ax, mat=spliced_data[i][j][0], xlabels=spliced_data[i][j][1], ylabels=spliced_data[i][j][2],
-                        cmap="coolwarm", title="UP mutations", vmin=np.min(dg_up_ar), vmax=np.max(dg_up_ar),
-                        fontsize=args.fs, heatmap_label=r'$\Delta{}g^{UP}$ (kcal/mol)', transpose=args.transpose)
+                        cmap=args.cmap, title="UP mutations", vmin=np.min(dg_up_ar), vmax=np.max(dg_up_ar),
+                        fontsize=args.fs, heatmap_label=heatmap_lab_down, transpose=args.transpose)
             if args.transpose:
-                plt.savefig(f"UP_mutations_x{j+1}_y{i+1}.pdf")
+                plt.savefig(f"{prefix}_UP_mutations_x{j+1}_y{i+1}.pdf")
             else:
-                plt.savefig(f"UP_mutations_x{i+1}_y{j+1}.pdf")
+                plt.savefig(f"{prefix}_UP_mutations_x{i+1}_y{j+1}.pdf")
             plt.clf()
 
-spliced_data = splice_data(dg_down_ar, 
+spliced_data = splice_data(plot_down_ar, 
                             dg_down.columns.tolist(),
                             dg_down.index.tolist(),
                             args.sv_x, args.sv_y)
 
+heatmap_lab_down = r'$\Delta{}' + label_symbol + r'^{DOWN}$ (kcal/mol)'
 if args.plot: 
     for i in range(len(spliced_data)):
         for j in range(len(spliced_data[i])):
             fig, ax = plt.subplots()
             plot_matrix(ax=ax, mat=spliced_data[i][j][0], xlabels=spliced_data[i][j][1], ylabels=spliced_data[i][j][2],
-                        cmap="coolwarm", title="DOWN mutations", vmin=np.min(dg_up_ar), vmax=np.max(dg_up_ar),
-                        fontsize=args.fs, heatmap_label=r'$\Delta{}g^{DOWN}$ (kcal/mol)', transpose=args.transpose)
+                        cmap=args.cmap, title="DOWN mutations", vmin=np.min(dg_up_ar), vmax=np.max(dg_up_ar),
+                        fontsize=args.fs, heatmap_label=heatmap_lab_down, transpose=args.transpose)
             if args.transpose:
-                plt.savefig(f"DOWN_mutations_x{i+1}_y{j+1}.pdf")
+                plt.savefig(f"{prefix}_DOWN_mutations_x{i+1}_y{j+1}.pdf")
             else:
-                plt.savefig(f"DOWN_mutations_x{j+1}_y{i+1}.pdf")
+                plt.savefig(f"{prefix}_DOWN_mutations_x{j+1}_y{i+1}.pdf")
             plt.clf()
 
 # transpose dataframes if requested
 if args.transpose:
-    dg_up = dg_up.transpose()
-    dg_down = dg_down.transpose()
+    if args.mode=='dg':
+            dg_up = dg_up.transpose()
+            dg_down = dg_down.transpose()
+    else:
+        dh_up = dh_up.transpose()
+        dh_down = dh_down.transpose()
 
 # write csv files
-dg_up.to_csv('up_mutations.tsv', sep='\t')
-dg_down.to_csv('down_mutations.tsv', sep='\t')
+    if args.mode == 'dg':
+        dg_up.to_csv('up_mutations.tsv', sep='\t')
+        dg_down.to_csv('down_mutations.tsv', sep='\t')
+    else:
+        dh_up.to_csv('dh_up_mutations.tsv', sep='\t')
+        dh_down.to_csv('dh_down_mutations.tsv', sep='\t')
