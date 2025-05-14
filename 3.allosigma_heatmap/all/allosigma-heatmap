@@ -127,6 +127,12 @@ def calculate_dh_from_dg(dg_matrix, fill_value=0):
     dh_matrix = np.where(np.isnan(dh_matrix), fill_value, dh_matrix)
     return dh_matrix 
 
+#Define label symbol depending on mode
+label_symbol = 'g' if args.mode == 'dg' else 'H'
+
+#Define filename prefix depending on mode
+prefix = 'dg' if args.mode == 'dg' else 'dh'
+
 matplotlib.rcParams['font.family'] = 'sans-serif'
 matplotlib.rcParams['font.sans-serif'] = [ 'Arial' ]
 matplotlib.rcParams['axes.unicode_minus'] = False
@@ -142,7 +148,7 @@ parser.add_argument('-y', '--svy', dest='sv_y', help='how many rows to keep for 
 parser.add_argument('-f', '--font-size', dest='fs', help='font size (default: 8)', default=8, type=float)
 parser.add_argument('-c', '--color-map', dest='cmap', help='color map to be used in plotting (default: coolwarm', default='coolwarm', type=str)
 parser.add_argument('-t', '--transpose', dest='transpose', help='transpose plotted matrices', default=False, action='store_true')
-parser.add_argument('--mode', dest='mode', default='dg', choices=['dg', 'dh'])
+parser.add_argument('-m', '--mode', dest='mode', default='dg', choices=['dg', 'dh'])
 
 args = parser.parse_args()
 
@@ -255,16 +261,18 @@ if args.mode == 'dh':
         dh_up = dh_up.transpose()
         dh_down = dh_down.transpose()
 
+#Define plot arrays depending on mode
+plot_up_ar = dg_up_ar if args.mode == 'dg' else dh_up_ar
+plot_down_ar = dg_down_ar if args.mode == 'dg' else dh_down_ar
+
 # splice data into blocks for plotting and plot
-spliced_data = splice_data(dg_up_ar, 
+spliced_data = splice_data(plot_up_ar,
                            dg_up.columns.tolist(),
-                           dg_up.index.tolist(), 
-                           args.sv_x, args.sv_y)
+                           dg_up.index.tolist(),
+                           args.sv_x, 
+                           args.sv_y)
 
 # workaround for minus in colorbar not showing
-
-# Define label symbol based on mode
-label_symbol = 'g' if args.mode == 'dg' else 'H'
 
 if args.plot: 
     for i in range(len(spliced_data)):
@@ -272,20 +280,15 @@ if args.plot:
             fig, ax = plt.subplots()
             plot_matrix(ax=ax, mat=spliced_data[i][j][0], xlabels=spliced_data[i][j][1], ylabels=spliced_data[i][j][2],
                         cmap="coolwarm", title="UP mutations", vmin=np.min(dg_up_ar), vmax=np.max(dg_up_ar),
-                        fontsize=args.fs, heatmap_label=rf'$\Delta{{{label_symbol}}}^{{UP}}$ (kcal/mol)', transpose=args.transpose)
-            if args.transpose:
-                plt.savefig(f"UP_mutations_x{j+1}_y{i+1}.pdf")
-            else:
-                plt.savefig(f"UP_mutations_x{i+1}_y{j+1}.pdf")
+                        fontsize=args.fs, heatmap_label=label_symbol, transpose=args.transpose)
+            plt.savefig(f"{prefix}_UP_mutations_x{j+1}_y{i+1}.pdf")
             plt.clf()
 
-spliced_data = splice_data(dg_down_ar, 
-                            dg_down.columns.tolist(),
-                            dg_down.index.tolist(),
-                            args.sv_x, args.sv_y)
+spliced_data = splice_data(plot_down_ar, 
+                           dg_down.columns.tolist(),
+                           dg_down.index.tolist(),
+                           args.sv_x, args.sv_y)
 
-# Define label symbol based on mode
-label_symbol = 'g' if args.mode == 'dg' else 'H'
 
 if args.plot: 
     for i in range(len(spliced_data)):
@@ -293,11 +296,8 @@ if args.plot:
             fig, ax = plt.subplots()
             plot_matrix(ax=ax, mat=spliced_data[i][j][0], xlabels=spliced_data[i][j][1], ylabels=spliced_data[i][j][2],
                         cmap="coolwarm", title="DOWN mutations", vmin=np.min(dg_up_ar), vmax=np.max(dg_up_ar),
-                        fontsize=args.fs, heatmap_label=rf'$\Delta{{{label_symbol}}}^{{DOWN}}$ (kcal/mol)', transpose=args.transpose)
-            if args.transpose:
-                plt.savefig(f"DOWN_mutations_x{i+1}_y{j+1}.pdf")
-            else:
-                plt.savefig(f"DOWN_mutations_x{j+1}_y{i+1}.pdf")
+                        fontsize=args.fs, heatmap_label=label_symbol, transpose=args.transpose)
+            plt.savefig(f"{prefix}_DOWN_mutations_x{j+1}_y{i+1}.pdf")
             plt.clf()
 
 
