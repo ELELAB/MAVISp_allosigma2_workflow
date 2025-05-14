@@ -91,12 +91,13 @@ allosigma-heatmap has two purposes:
 * Plotting (pdf heatmaps)
 * Formatting (tsv files)
 
+Using flag -m you can denote whether to use dG or dH values (dG is default).
+
 If you wish to only get the formatting, you can omit the additional flags. 
 If you wish to get the plot, you should use the flag --plot.
 
 Based on these data and information, it plots heatmaps of the UP or DOWN allosteric
-free energy (DgUP or DgDOWN) for the UP or DOWN (respectively) mutation sites encoded
-in the input tsv file. It also writes corresponding tsv files containing the same
+free energy (Dg/Dh UP or Dg/Dh DOWN) for the UP or DOWN (respectively) mutation sites encoded in the input tsv file. It also writes corresponding tsv files containing the same
 values.
 
 Response sites are the whole protein by default, and can be further selected by using
@@ -111,8 +112,8 @@ It is possible to decide the maximum number of columns of rows for your heatmap 
 specifying the -x and -y options. If more residues than what specified need to be
 plotted, multiple matrices will be written.
 
-option -f and -c allow to chnge font size and color map, respectively. Option -t
-can be used to transpose the matrices.
+option -f and -c allow to change font size and color map, respectively. 
+Option -t can be used to transpose the matrices.
 
 ### Requirements
 
