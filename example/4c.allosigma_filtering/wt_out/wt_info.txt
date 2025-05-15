@@ -5,7 +5,7 @@ Pocket 1 :
 	Total SASA : 	175.221
 	Polar SASA : 	68.950
 	Apolar SASA : 	106.271
-	Volume : 	606.394
+	Volume : 	607.867
 	Mean local hydrophobic density : 	15.684
 	Mean alpha sphere radius :	3.917
 	Mean alp. sph. solvent access : 	0.430
@@ -26,7 +26,7 @@ Pocket 2 :
 	Total SASA : 	56.130
 	Polar SASA : 	24.732
 	Apolar SASA : 	31.398
-	Volume : 	217.333
+	Volume : 	215.949
 	Mean local hydrophobic density : 	2.000
 	Mean alpha sphere radius :	3.788
 	Mean alp. sph. solvent access : 	0.529
@@ -47,7 +47,7 @@ Pocket 3 :
 	Total SASA : 	77.201
 	Polar SASA : 	21.650
 	Apolar SASA : 	55.551
-	Volume : 	248.466
+	Volume : 	248.861
 	Mean local hydrophobic density : 	7.000
 	Mean alpha sphere radius :	3.880
 	Mean alp. sph. solvent access : 	0.652
@@ -68,7 +68,7 @@ Pocket 4 :
 	Total SASA : 	92.081
 	Polar SASA : 	54.644
 	Apolar SASA : 	37.436
-	Volume : 	303.547
+	Volume : 	303.959
 	Mean local hydrophobic density : 	5.000
 	Mean alpha sphere radius :	4.035
 	Mean alp. sph. solvent access : 	0.650
@@ -89,7 +89,7 @@ Pocket 5 :
 	Total SASA : 	75.987
 	Polar SASA : 	30.355
 	Apolar SASA : 	45.632
-	Volume : 	203.380
+	Volume : 	203.914
 	Mean local hydrophobic density : 	7.000
 	Mean alpha sphere radius :	3.995
 	Mean alp. sph. solvent access : 	0.576
@@ -110,7 +110,7 @@ Pocket 6 :
 	Total SASA : 	93.575
 	Polar SASA : 	44.063
 	Apolar SASA : 	49.513
-	Volume : 	399.367
+	Volume : 	402.582
 	Mean local hydrophobic density : 	8.000
 	Mean alpha sphere radius :	4.234
 	Mean alp. sph. solvent access : 	0.689
@@ -131,7 +131,7 @@ Pocket 7 :
 	Total SASA : 	76.106
 	Polar SASA : 	28.929
 	Apolar SASA : 	47.177
-	Volume : 	271.430
+	Volume : 	271.766
 	Mean local hydrophobic density : 	1.000
 	Mean alpha sphere radius :	4.143
 	Mean alp. sph. solvent access : 	0.697
@@ -152,7 +152,7 @@ Pocket 8 :
 	Total SASA : 	82.944
 	Polar SASA : 	12.902
 	Apolar SASA : 	70.042
-	Volume : 	369.471
+	Volume : 	368.608
 	Mean local hydrophobic density : 	13.000
 	Mean alpha sphere radius :	4.100
 	Mean alp. sph. solvent access : 	0.679
