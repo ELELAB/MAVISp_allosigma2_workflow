@@ -1,0 +1,37 @@
+HEADER
+HEADER This is a pdb format file writen by the programm fpocket.                 
+HEADER It represents the atoms contacted by the voronoi vertices of the pocket.  
+HEADER                                                                           
+HEADER Information about the pocket     3:
+HEADER 0  - Pocket Score                      : 0.1310
+HEADER 1  - Drug Score                        : 0.0202
+HEADER 2  - Number of alpha spheres           :    17
+HEADER 3  - Mean alpha-sphere radius          : 3.8802
+HEADER 4  - Mean alpha-sphere Solvent Acc.    : 0.6519
+HEADER 5  - Mean B-factor of pocket residues  : 0.5265
+HEADER 6  - Hydrophobicity Score              : 1.3333
+HEADER 7  - Polarity Score                    :     4
+HEADER 8  - Amino Acid based volume Score     : 3.6667
+HEADER 9  - Pocket volume (Monte Carlo)       : 255.3895
+HEADER 10 - Pocket volume (convex hull)       : 9.8899
+HEADER 11 - Charge Score                      :     1
+HEADER 12 - Local hydrophobic density Score   : 7.0000
+HEADER 13 - Number of apolar alpha sphere     :     8
+HEADER 14 - Proportion of apolar alpha sphere : 0.4706
+ATOM   1269   CG ASN A 302      12.361  -8.587   9.661  0.00  0.00           C 0
+ATOM   1270  ND2 ASN A 302      12.486  -8.165  10.905  0.35  7.66           N 0
+ATOM   1271  OD1 ASN A 302      13.147  -9.393   9.167  0.00  6.43           O 0
+ATOM   1223   CE LYS A 299      15.857  -2.967   9.775  0.00  0.00           C 0
+ATOM   1265   CA ASN A 302      11.562  -6.752   8.082  0.00  0.00           C 0
+ATOM   1329   CB SER A 306      20.578  -4.977   0.461  0.00  0.00           C 0
+ATOM   1316  CG2 THR A 305      18.133  -1.118   3.568  0.00  0.00           C 0
+ATOM   1311    N THR A 305      16.653  -3.536   2.795  0.61  1.09           N 0
+ATOM   1301   CB PRO A 304      17.137  -7.071   2.990  0.00  0.00           C 0
+ATOM   1325    N SER A 306      18.593  -3.579   0.917  0.74  1.09           N 0
+ATOM   1222   CD LYS A 299      14.982  -2.652   8.569  0.00  0.00           C 0
+ATOM   1298   CA PRO A 304      16.292  -5.872   3.436  0.00  0.00           C 0
+ATOM   1281    O LEU A 303      14.176  -4.736   4.835  0.73  2.14           O 0
+ATOM   1267    O ASN A 302      13.031  -8.071   6.673  0.27  5.36           O 0
+ATOM   1297    N PRO A 304      14.960  -6.458   3.617  0.56  1.09           N 0
+TER
+END

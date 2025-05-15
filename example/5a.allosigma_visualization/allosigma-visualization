@@ -1,0 +1,345 @@
+#!/usr/bin/env python3
+
+# allosigma_visualization
+# Copyright (C) 2024 Kristine Degn, Cancer structural biology,
+# Technical University of Denmark/Danish cancer society research center
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+from pymol import cmd
+import sys
+import pandas as pd
+import os
+import argparse
+import numpy as np
+from Bio import PDB
+
+def get_filtered_file(df, revised_df, direction):
+    """
+    A function that takes information regarding the mutational site (revised up/down),
+    informaton about the response sites (up/down_df) and either "UP" or "DOWN", 
+    and creates a representation of revised df, where the response sites are 
+    listed only as sites. 
+
+    Parameters
+    ----------
+    df : up/down df - information on response sites.
+    revised_df : Simple df with information on mutational sites.
+    direction : Either UP or DOWN.
+
+    Returns
+    -------
+    revised_df : A revised df with a new column, if there are any up or down 
+    reponse sites, and only the site number. 
+    
+    E.g.:
+    WT_AA   pos     combined response_list_UP
+    C       135         C135          116+115
+    S       149         S149               91
+    S       183         S183      192+138+188
+    S       185         S185          192+138
+    """
+    
+    revised_df[f'response_list_{direction}'] = None
+
+    # Iterate over rows in the DataFrame
+    for index, row in df.iterrows():
+        # Get the mutations from the first column
+        mutations = row['mutations'].split()
+
+        # Initialize a set to store unique numerical values for each mutation
+        mutation_values = set()
+
+        # Iterate over numerical values in the row
+        for col, value in row.drop('mutations').dropna().items():
+            # Extract the numerical part of the column name
+            num_part = ''.join(filter(str.isdigit, col))
+
+            # Add the numerical value to the set
+            mutation_values.add(num_part)
+
+        # Combine mutation_values and set the values in the "response_list" column
+        for mutation in mutations:
+            key = ''.join(filter(str.isdigit, mutation))
+            revised_df.loc[revised_df['pos'] == key, f'response_list_{direction}'] = '+'.join(mutation_values)
+
+    # Replace NaN values with an empty string in the response_list column
+    revised_df[f'response_list_{direction}'] = revised_df[f'response_list_{direction}'].replace(np.nan, '')
+
+    return revised_df
+
+# Function to load PDB file and select specified residues
+def load_and_select_residues(pdb_file, pos, response_list_UP, 
+                             response_list_DOWN, session_file_name, 
+                             mut_color, response_color_up, 
+                             response_color_down, response_color_both,
+                             structure_color, residue_representation):
+    
+    """
+    A function that creates the pymol session based on the input criteria.
+
+    """
+    # Load PDB file
+    cmd.reinitialize()
+    cmd.load(pdb_file, 'structure')
+    
+    cmd.show('cartoon')
+    cmd.color(structure_color)
+    
+    # Select specified residues    
+    if residue_representation == "spheres":
+        mutation_selection = f'structure and resid {pos} and name CA'
+    else:
+        mutation_selection = f'structure and resid {pos}'
+        
+    cmd.select('mutation_selection', str(mutation_selection))
+    cmd.show(residue_representation, 'mutation_selection')
+    cmd.color(mut_color, 'mutation_selection')
+    
+    #Check if response_list_UP is not NaN
+    if not pd.isna(response_list_UP):
+        set_UP = set(map(int, response_list_UP.split('+')))
+    else:
+        set_UP = set()
+    
+    # Check if response_list_DOWN is not NaN
+    if not pd.isna(response_list_DOWN):
+        set_DOWN = set(map(int, response_list_DOWN.split('+')))
+    else:
+        set_DOWN = set()
+    
+    common_elements = set_UP & set_DOWN
+    set_UP -= common_elements
+    set_DOWN -= common_elements
+    
+    response_list_UP = '+'.join(map(str, set_UP))
+    response_list_DOWN = '+'.join(map(str, set_DOWN))
+    
+    if len(response_list_UP) > 0:
+        if residue_representation == "spheres":
+            response_up_selection = f'structure and resid {response_list_UP} and name CA'
+        else:
+            response_up_selection = f'structure and resid {response_list_UP}'
+        cmd.select('response_up_selection', str(response_up_selection))
+        cmd.show(residue_representation, 'response_up_selection')
+        cmd.color(response_color_up, 'response_up_selection')
+        
+    if len(response_list_DOWN) > 0:
+        if residue_representation == "spheres":
+            response_down_selection = f'structure and resid {response_list_DOWN} and name CA'
+        else:
+            response_down_selection = f'structure and resid {response_list_DOWN}'
+        cmd.select('response_down_selection', str(response_down_selection))
+        cmd.show(residue_representation, 'response_down_selection')     
+        cmd.color(response_color_down, 'response_down_selection')
+    
+    if len(common_elements) > 0:
+        response_list_BOTH = '+'.join(map(str, common_elements))
+        if residue_representation == "spheres":
+            response_both_selection = f'structure and resid {response_list_BOTH} and name CA'
+        else:
+            response_both_selection = f'structure and resid {response_list_BOTH}'
+        
+        cmd.select('response_both_selection', str(response_both_selection))
+        cmd.show(residue_representation, 'response_both_selection')
+        cmd.color(response_color_both, 'response_both_selection')
+    
+    # Save PyMOL session
+    cmd.save("pymol_sessions/" + session_file_name + '.pse')
+    
+    print(f"PyMOL - saved session of {session_file_name}")
+
+def get_mutation_df(df):
+    """
+    A function that updates the up or down df to include a "combined" row
+    for each muation, converting a list of mutations into a single site.
+
+    Parameters
+    ----------
+    df : up or down df, imported in run_the_files
+
+    Returns
+    -------
+    new_df : An updated df that contains simple information regarding the mutation, 
+    but nothing about the response sites.
+
+    """
+    new_df = pd.DataFrame(df['mutations'].str.split().str[0].tolist(), columns=['WT_AA'])
+    new_df[['WT_AA', 'pos', 'MUT_AA']] = new_df['WT_AA'].str.extract(r'([A-Za-z])(\d+)([A-Za-z]+)')
+    new_df = new_df.drop(columns="MUT_AA")
+    new_df['combined'] = new_df['WT_AA'] + new_df['pos'].astype(str)
+    return new_df
+
+
+# Run the script with the provided PDB file and residues
+if __name__ == '__main__':
+    #the input
+    parser = argparse.ArgumentParser(description='PyMOL Script for Residue Selection')
+
+    # PDB
+    parser.add_argument('--pdb', required=True, help='Path to the PDB file')
+    
+    # input files
+    parser.add_argument('--up_tsv', required=False, help='Path to the up TSV file', default=None)
+    parser.add_argument('--down_tsv', required=False, help='Path to the down TSV file', default=None)
+    parser.add_argument('--site', required=False, help='Site of interest, e.g P153', default="none")
+    parser.add_argument('--putty', action='store_true', help='If you wish to represent the response as a putty')
+    
+    # colors
+    parser.add_argument('--structure_color', required=False, help='color of the structure', default="grey60")
+    parser.add_argument('--mut_color', required=False, help='color of the mutation site', default="red")
+    parser.add_argument('--response_color_up', required=False, help='color of the response sites to an UP mutation', default="blue")
+    parser.add_argument('--response_color_down', required=False, help='color of the response site to a DOWN mutation', default="yellow")
+    parser.add_argument('--response_color_both', required=False, help='color of the response site if overlap', default="green")
+    parser.add_argument('--residue_representation', required=False, help='spheres, sticks or other pymol respresentation', default="spheres")
+    
+    args = parser.parse_args()
+    
+    # input files, colors and settings:
+    if not (args.up_tsv or args.down_tsv):
+        print("Either --up_tsv and/or --down_tsv must be provided. Exiting...")
+        sys.exit(1)
+    
+    up_tsv = args.up_tsv
+    down_tsv = args.down_tsv
+    site = args.site
+    
+    if args.putty:
+        if up_tsv is not None and down_tsv is not None:
+            print("When you choose --putty, you need to provide either --up_tsv or --down_tsv. Exiting...")
+            sys.exit(1)
+        
+        tsv = up_tsv if up_tsv is not None else down_tsv
+        if tsv.split("_")[0] == "filtered":
+            t = tsv.split("_")[1]
+        else:
+            t = tsv.split("_")[0]
+        
+        df = pd.read_csv(tsv, sep="\t", index_col=0)
+        df = df.drop(columns=['n_mutations', 'avg_dG'], errors='ignore')
+        if 'mutations' not in df.columns:
+            df['mutations'] = df.index
+        df = df.reset_index(drop=True)
+        df['mutations'] = df['mutations'].str.split().str[0].tolist()
+        df[['WT_AA', 'pos', 'MUT_AA']] = df['mutations'].str.extract(r'([A-Za-z])(\d+)([A-Za-z]+)')
+        df = df.drop(columns=["MUT_AA", 'mutations'])
+        df['combined'] = df['WT_AA'] + df['pos'].astype(str)
+        simple_df = df[['WT_AA', 'pos', 'combined']]
+        df = df.drop(columns=['WT_AA', 'pos', 'combined'])
+        df.columns = df.columns.str.extract('(\d+)', expand=False)
+        df['pos'] = simple_df['pos']
+        df['combined'] = simple_df['combined']
+            
+        if site != "none":
+            df = df[df.combined == site]
+        
+        if not os.path.exists(f"putty_pdbs_{t}"):
+            os.mkdir(f"putty_pdbs_{t}")
+            
+        parser = PDB.PDBParser(QUIET=True)
+        structure = parser.get_structure('original', args.pdb)
+        if len(structure) > 1:
+            print("You have supplied a PDB with more than one structure. Exiting...")
+            sys.exit(1)
+        
+        chain_identifiers = [chain.id for chain in structure[0]]
+        if len(chain_identifiers) > 1:
+            print("You have supplied a PDB with more than one chain. Exiting...")
+            sys.exit(1)
+            
+        chain_id = chain_identifiers[0]
+        
+        ca_atoms = [atom for atom in structure.get_atoms() if atom.id == 'CA']
+        
+        for index, row in df.iterrows():
+            # Update B-factors based on DataFrame values
+            for i, residue in enumerate(structure[0][chain_id]):
+                residue_id = residue.get_id()[1]
+                if residue_id in df.columns:
+                    # Update B-factor for CA atom
+                    ca_atoms[i].set_bfactor(float(df[residue_id].iloc[0]))  
+            # Save the modified structure to a new PDB file
+            io = PDB.PDBIO()
+            io.set_structure(structure)
+            io.save(f"putty_pdbs_{t}/{row['combined']}.pdb")
+        
+            #create_putty_session(f"putty_pdbs_{t}/{row['combined']}.pdb", row['combined'], t)
+
+            cmd.load(f"putty_pdbs_{t}/{row['combined']}.pdb", 'structure')
+            cmd.hide()    
+            cmd.show("cartoon")
+            cmd.spectrum("b", "blue_red")
+            cmd.set("cartoon_putty_radius", 0.5)
+            
+            mutation_selection = f"structure and resid {row['combined'][1:]} and name CA"
+            cmd.select('mutation_selection', str(mutation_selection))
+            cmd.show("sphere", 'mutation_selection')
+            
+            #create the pymol sessions directory
+            if not os.path.exists(f"pymol_sessions_putty_{t}"):
+                os.mkdir(f"pymol_sessions_putty_{t}")
+            cmd.save(f"pymol_sessions_putty_{t}/{row['combined']}.pse")
+
+            
+    else:
+        structure_color = args.structure_color
+        mut_color = args.mut_color
+        response_color_up = args.response_color_up
+        response_color_down = args.response_color_down
+        response_color_both = args.response_color_both
+        residue_representation = args.residue_representation
+    
+        dfs = {}
+
+        for name, fname in zip(['up', 'down'], [up_tsv, down_tsv]):
+            if fname is not None:
+                df = pd.read_csv(fname, sep="\t", index_col=0)
+                df = df.drop(columns=['n_mutations', 'avg_dG'], errors='ignore')
+                revised_df = get_mutation_df(df)
+                revised_df = get_filtered_file(df, revised_df, name.upper())
+            else:
+                revised_df = pd.DataFrame()  # Empty DataFrame
+
+            dfs[name] = revised_df
+        
+        if not dfs['up'].empty and not dfs['down'].empty:
+            merged_df = dfs['up'].merge(dfs['down'], on=["WT_AA", "pos", "combined"], how="outer")
+        elif not dfs['up'].empty:
+            merged_df = dfs['up']
+            merged_df["response_list_DOWN"] = np.nan
+        elif not dfs['down'].empty:
+            merged_df = dfs['down']
+            merged_df["response_list_UP"] = np.nan
+        
+        # Create the pymol sessions directory
+        if not os.path.exists("pymol_sessions"):
+            os.mkdir("pymol_sessions")
+        
+        #limit if a single site is choosen
+        if site != "none":
+            merged_df = merged_df[merged_df.combined == site]
+        
+        #run each row of the df, creating a pymol session for each mutational site.
+        for index, row in merged_df.iterrows():
+            pos = row['pos']
+            session_file_name = row['combined']
+            response_list_UP = row['response_list_UP']
+            response_list_DOWN = row['response_list_DOWN']
+            
+            load_and_select_residues(args.pdb, pos, response_list_UP, 
+                                     response_list_DOWN, session_file_name, 
+                                     mut_color, response_color_up, 
+                                     response_color_down, response_color_both,
+                                     structure_color, residue_representation)
+
