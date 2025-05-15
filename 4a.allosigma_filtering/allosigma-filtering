@@ -677,7 +677,7 @@ def pocket_analysis(df, PDB, file):
         print("WARNING: No residues found in pockets; Skipping...")
         return
 
-    pocket_residues = list(set(pocket_residues))
+    pocket_residues = sorted(list(set(pocket_residues)), key=lambda x: int(x[1:]))
     #Generate a file with the pocket residues. The aim of this file
     #is to have a list to quality control if needed.
     with open("pocket_residues.txt", "w") as f:
