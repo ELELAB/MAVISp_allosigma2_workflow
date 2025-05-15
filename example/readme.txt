@@ -1,5 +1,4 @@
-# Mavisp Allosigma2 workflow pipeline - Example	
-
+# Mavisp Allosigma2 workflow - Example	
 Shows run examples of the Mavisp Allosimga2 workflow using the same input protein for all test cases: FLG (Uniprot ID: P20930)
 
 # Structure
