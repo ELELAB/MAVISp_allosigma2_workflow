@@ -32,8 +32,8 @@ from Bio import BiopythonWarning
 # Ignore PDBConstructionWarning
 warnings.simplefilter('ignore', BiopythonWarning)
 
-#allosigma-filtering -s {pdb_id} -i {up/down}_mutations.tsv 
-                        #-t {dG threshold} -d {distance threshold} 
+#allosigma-filtering -s {pdb_id} -i {up/down}_mutations.tsv
+                        #-t {dG threshold} -d {distance threshold}
                         #-a {access threshold}
 
 parser = argparse.ArgumentParser()
@@ -95,24 +95,24 @@ elif args.distance_method in ["value", "sidechain_value"]:
         parser.error("--value is required when distance_method is 'value' or 'sidechain_value'")
     distance_threshold = args.value
 
-dg_threshold = args.threshold  
+dg_threshold = args.threshold
 file = args.input
 PDB = args.structure
 access_threshold = args.accessibility
 
 def filter_on_dg(df, dg_threshold):
     """
-    A function that takes the dataframe from allosigma_heatmap, 
-    down_mutations.tsv or up_mutations.tsv as df and set values 
+    A function that takes the dataframe from allosigma_heatmap,
+    down_mutations.tsv or up_mutations.tsv as df and set values
     below the absolute value of the threshold to "nan"
 
     Parameters
     ----------
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score.
-    dg_threshold : A float or integer indicating a minimum value a 
+    dg_threshold : A float or integer indicating a minimum value a
     allosigma score should be for it to be taken into account here.
-    A scores very close to zero should be excluded. 
+    A scores very close to zero should be excluded.
 
     Returns
     -------
@@ -122,33 +122,33 @@ def filter_on_dg(df, dg_threshold):
     """
     #convert every value to a float
     df = df.astype(float)
-    #if the value from the allosigma run is in the interval -threshold:threshold 
+    #if the value from the allosigma run is in the interval -threshold:threshold
     #the effect is not large enough and the value is instead "NaN".
     df[abs(df) < dg_threshold] = np.nan
     #we use np.nan in stead of pd.NA, because pd.NA creates a problem in columns
     #where there are no floats, converting it to a different datatype, creating
     #a dataframe with mixed data, e.g. <NA> which complicates the distance
     #filter.
-    
+
     #If there are no absolute values larger than the threshold, there are none
     #to continue to filter. Using isna identify if a value is "NaN", .all does
     # so per column, .all() does so for all, resulting in a single "True" or
-    # "False". 
+    # "False".
     if df.isna().all().all():
         print(f"WARNING: No mutations satisfy the filtering on dG values using the threshold {dg_threshold}; Exiting...")
         exit(1)
     else:
         print(f"Filtered successfully on dG values using the threshold {dg_threshold}.")
         return df
-    
+
 def create_arginine_list(df, distance_df, PDB, file):
-    
+
     print('input df\n', df)
     print('distance df\n', distance_df)
 
     name = file[:-4]
     distance_df.rename(columns={'distance': 'distance_CA'}, inplace=True)
-    
+
     df = df.copy()
 
     df['mutation_site'] = [ str(item).split()[0][:-1] for item in list(df.index) ]
@@ -158,15 +158,15 @@ def create_arginine_list(df, distance_df, PDB, file):
     print("df\n", df)
     print('arginine sites', arginine_sites)
 
-    # Pivot the DataFrame    
-    pivot_df = df.melt(id_vars='mutation_site', var_name='response_site', value_name='value').dropna()   
+    # Pivot the DataFrame
+    pivot_df = df.melt(id_vars='mutation_site', var_name='response_site', value_name='value').dropna()
 
     print("pivot_df\n", pivot_df)
 
     #merge distance
-    combined_df = pivot_df.merge(distance_df, left_on=["mutation_site", "response_site"], 
+    combined_df = pivot_df.merge(distance_df, left_on=["mutation_site", "response_site"],
                   right_on=["res1", "res2"], how='inner')
-    
+
     print("combined_df\n", combined_df)
     arginine_mutation_df = combined_df[combined_df['mutation_site'].isin(arginine_sites)]
 
@@ -174,7 +174,7 @@ def create_arginine_list(df, distance_df, PDB, file):
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #part 2: argenine response sites
-    
+
     if len(arginine_mutation_df) == 0:
         return
 
@@ -210,27 +210,27 @@ def create_arginine_list(df, distance_df, PDB, file):
             distance = residue_1["CZ"] - residue_2["CA"]
 
         cz_data_response.append(distance)
-        
+
     arginine_mutation_df['distance_CZ'] = cz_data_response
 
     arginine_mutation_df = arginine_mutation_df[['mutation_site', 'response_site', 'distance_CA', 'distance_CZ']]
     print('final', arginine_mutation_df)
 
     arginine_mutation_df.to_csv(f"{name}_arginine_responder_distances_CA_CZ.csv")
-        
+
 def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
-    and creates a dataframe with biopython measuring in CA distances. This is 
-    used to filter out sites where the mutational site is closer than the 
-    defined distance_threshold. 
+    and creates a dataframe with biopython measuring in CA distances. This is
+    used to filter out sites where the mutational site is closer than the
+    defined distance_threshold.
 
     Parameters
     ----------
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold.
     PDB : The PDB file name
-    disance_threshold: A float or integer that determines the minimum 
+    disance_threshold: A float or integer that determines the minimum
     distance a long-range mutation is allowed to be.
 
     Returns
@@ -247,17 +247,17 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
         if Bio.PDB.is_aa(residue_1):
             for j, residue_2 in enumerate(structure.get_residues()):
                 # Check if the residue is an amino acid (e.g., exclude cofactor)
-                if Bio.PDB.is_aa(residue_2):   
-                    # documentation that subtraction measure distance: 
+                if Bio.PDB.is_aa(residue_2):
+                    # documentation that subtraction measure distance:
                     # https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
                     # under the question: "How do I measure distances?"
                     distance = residue_1["CA"] - residue_2["CA"]
                     res_1 = f"{seq1(residue_1.get_resname())}{residue_1.get_id()[1]}"
                     res_2 = f"{seq1(residue_2.get_resname())}{residue_2.get_id()[1]}"
                     distance_data.append((res_1, res_2, float(distance)))
-    #convert to a pandas dataframe. 
+    #convert to a pandas dataframe.
     distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
-    #reduce distance_df to include only the residues close to each other 
+    #reduce distance_df to include only the residues close to each other
     #within the distance_threshold:
     distance_df_close = distance_df[distance_df.distance <= distance_threshold]
     #res1   res2    distance
@@ -267,18 +267,18 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
     df = df.reset_index()
-    df.set_index('position', inplace=True)    
-    #we iterate over distance_df because it is much more computationally 
-    #cheap to iterate over the smaller dataframe. 
+    df.set_index('position', inplace=True)
+    #we iterate over distance_df because it is much more computationally
+    #cheap to iterate over the smaller dataframe.
     for index, row in distance_df_close.iterrows():
-        if row['res1'] in df.index and row['res2'] in df.columns: 
+        if row['res1'] in df.index and row['res2'] in df.columns:
             df.loc[row['res1'], row['res2']] = np.nan
             #we continue to use np.nan due as explained above.
     #remove the position and reinstate mutations as the index.
     df = df.set_index('mutations', drop=True)
-    
+
     create_arginine_list(df, distance_df, PDB, file)
-    
+
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
@@ -291,14 +291,14 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
     and filters out mutation–response site pairs where any side-chain heavy atoms
-    (or glycine sidechain hydrogen atoms) are closer than the defined distance_threshold. 
+    (or glycine sidechain hydrogen atoms) are closer than the defined distance_threshold.
 
     Parameters
     ----------
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold.
     PDB : The PDB file name
-    distance_threshold: A float or integer that determines the minimum 
+    distance_threshold: A float or integer that determines the minimum
     distance a long-range mutation is allowed to be.
 
     Returns
@@ -316,7 +316,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     for residue in structure.get_residues():
         if not Bio.PDB.is_aa(residue):
             continue
-        #list to store atom objects 
+        #list to store atom objects
         atoms = []
         #handle glycine exception
         if residue.get_resname() == "GLY":
@@ -328,7 +328,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
                     )
             atoms.extend(H_atoms)
         #handle rest of the residues
-        else:              
+        else:
             for atom in residue:
                 if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
                     atoms.append(atom)
@@ -342,23 +342,23 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
         residue_atoms[residue_id] = atoms
     #add a column to the df with the position of the mutation
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
-    #turn the index "mutations" into a column 
+    #turn the index "mutations" into a column
     df = df.reset_index()
     #set position as new index
     df.set_index('position', inplace=True)
     #remove mutations column and store it.
     mutations_column = df.pop("mutations")
-    #iterates over the df checking for non-NaN entries  
+    #iterates over the df checking for non-NaN entries
     for res1 in df.index:
         for res2 in df.columns:
             if pd.isna(df.loc[res1, res2]):
                 continue
             atoms1 = residue_atoms[res1]
             atoms2 = residue_atoms[res2]
-            #check all atom pairs until finds distance below threshold 
+            #check all atom pairs until finds distance below threshold
             if any((a1 - a2) <= distance_threshold for a1 in atoms1 for a2 in atoms2):
                 #sets value to NaN
-                df.loc[res1, res2] = np.nan                                 
+                df.loc[res1, res2] = np.nan
     #remove the position and reinstance mutations as the index
     df["mutations"] = mutations_column.values
     df.set_index("mutations", inplace=True)
@@ -369,23 +369,23 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
         exit(1)
-    else:       
+    else:
         print(f"Filtered successfully on distance, removing sites closer than {distance_threshold} Å.")
         return df
 
 def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
-    and creates a dataframe with biopython measuring in CA distances. This is 
-    used to filter out sites where the mutational site is closer than the 
-    defined distance_threshold. 
+    and creates a dataframe with biopython measuring in CA distances. This is
+    used to filter out sites where the mutational site is closer than the
+    defined distance_threshold.
 
     Parameters
     ----------
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold.
     PDB : The PDB file name
-    disance_threshold: A float or integer that determines the minimum 
+    disance_threshold: A float or integer that determines the minimum
     distance a long-range mutation is allowed to be.
 
     Returns
@@ -402,20 +402,20 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
         if Bio.PDB.is_aa(residue_1):
             for j, residue_2 in enumerate(structure.get_residues()):
                 # Check if the residue is an amino acid (e.g., exclude cofactor)
-                if Bio.PDB.is_aa(residue_2):   
-                    # documentation that subtraction measure distance: 
+                if Bio.PDB.is_aa(residue_2):
+                    # documentation that subtraction measure distance:
                     # https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
                     # under the question: "How do I measure distances?"
                     distance = residue_1["CA"] - residue_2["CA"]
                     res_1 = f"{seq1(residue_1.get_resname())}{residue_1.get_id()[1]}"
                     res_2 = f"{seq1(residue_2.get_resname())}{residue_2.get_id()[1]}"
                     distance_data.append((res_1, res_2, float(distance)))
-    #convert to a pandas dataframe. 
+    #convert to a pandas dataframe.
     distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
     distance_median = distance_df.distance.median()
     threshold = distance_median * distance_threshold
     print(f"Median Distance is {distance_median}, hence choosen distance is {distance_median*distance_threshold}")
-    #reduce distance_df to include only the residues close to each other 
+    #reduce distance_df to include only the residues close to each other
     #within the distance_threshold:
     distance_df_close = distance_df[distance_df.distance <= threshold]
     #res1   res2    distance
@@ -425,18 +425,18 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
     df['position'] = df.apply(lambda r: r.name.split(' ')[0][:-1], axis=1)
     #use this as a index
     df = df.reset_index()
-    df.set_index('position', inplace=True)    
-    #we iterate over distance_df because it is much more computationally 
-    #cheap to iterate over the smaller dataframe. 
+    df.set_index('position', inplace=True)
+    #we iterate over distance_df because it is much more computationally
+    #cheap to iterate over the smaller dataframe.
     for index, row in distance_df_close.iterrows():
-        if row['res1'] in df.index and row['res2'] in df.columns: 
+        if row['res1'] in df.index and row['res2'] in df.columns:
             df.loc[row['res1'], row['res2']] = np.nan
             #we continie to use np.nan due as explained above.
     #remove the position and reinstate mutations as the index.
     df = df.set_index('mutations', drop=True)
-    
+
     create_arginine_list(df, distance_df, PDB, file)
-    
+
     #check if all where removed or continue the filtering.
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
@@ -505,7 +505,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
     #set position as new index
     df.set_index('position', inplace=True)
     #remove mutations column and store it.
-    mutations_column = df.pop("mutations")    
+    mutations_column = df.pop("mutations")
     #calculate minimum distance
     distance_data = []
     #iterates over the df checking for non-NaN entries
@@ -513,13 +513,13 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
         for res2 in df.columns:
             if pd.isna(df.loc[res1, res2]):
                 continue
-            #Load atom list for both residues    
+            #Load atom list for both residues
             atoms1 = residue_atoms[res1]
             atoms2 = residue_atoms[res2]
             #calculate the shortest distance between every atom pair in the 2 residues
             min_distance = min(a1 - a2 for a1 in atoms1 for a2 in atoms2)
             distance_data.append((res1, res2, min_distance))
-    #Calculate the median distance 
+    #Calculate the median distance
     all_min_distance = [d[2] for d in distance_data]
     distance_median = np.median(all_min_distance)
     threshold = distance_median * distance_threshold
@@ -532,7 +532,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
             df.loc[res1, res2] = np.nan
     #remove position column and reinstance mutations as the index
     df["mutations"] = mutations_column.values
-    df.set_index("mutations", inplace=True)    
+    df.set_index("mutations", inplace=True)
     #drop columns and rows where there are no values.
     df = df.dropna(axis=1, how="all")
     df = df.dropna(axis=0, how="all")
@@ -546,7 +546,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
 
 def filter_on_naccess(PDB, df, access_threshold):
     """
-    A function that takes the PDB file and the dataframe produced by 
+    A function that takes the PDB file and the dataframe produced by
     filter_on_distance() to filter on solvent accessibility of sites.
 
     Parameters
@@ -555,7 +555,7 @@ def filter_on_naccess(PDB, df, access_threshold):
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold and the distance
     from mutation (x) to site (y) is larger than disance_threshold.
-    access_threshold : A value if the site is below = burried, if 
+    access_threshold : A value if the site is below = burried, if
     above = solvent accessibible. From 0-100.
 
     Returns
@@ -563,7 +563,7 @@ def filter_on_naccess(PDB, df, access_threshold):
     df : A dataframe where the buried sites are excluded
 
     """
-    #run the naccess    
+    #run the naccess
     command = f"naccess {PDB}"
     try:
         subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -571,7 +571,7 @@ def filter_on_naccess(PDB, df, access_threshold):
         print(f"ERROR: not possible to run naccess for {PDB}")
         exit(1)
     #NOTICE! This should be updated for multichain PDBs if they become
-    #part of this calculation. 
+    #part of this calculation.
     rsa = pd.read_fwf(f"{PDB[:-4]}.rsa",
                 skiprows=4, skipfooter=4, header=None, widths=[4,4,1,4,9,6,7,6,7,6,7,6,7,6],
                 names = ['entry', 'rest', 'chain', 'resn', 'all_abs', 'sas_all_rel', 'sas_sc_abs',
@@ -592,16 +592,16 @@ def filter_on_naccess(PDB, df, access_threshold):
         print(f"Filtered successfully on solvent accessibility removing sites with a solvent accessibility < {access_threshold}")
         return df
 
-def output_file(df, file): 
+def output_file(df, file):
     """
-    A function that exit if no mutations are satisfying the criteria 
+    A function that exit if no mutations are satisfying the criteria
     for filtering or exports the dataframe.
 
     Parameters
     ----------
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold and the distance
-    from mutation (x) to site (y) is larger than disance_threshold and the 
+    from mutation (x) to site (y) is larger than disance_threshold and the
     solvent accessibility of site (y) is larger than access_threshold.
 
     Returns
@@ -609,24 +609,24 @@ def output_file(df, file):
     A filtered tsv file is exported.
 
     """
-    #Drop columns where there are no values. 
+    #Drop columns where there are no values.
     df = df.dropna(axis=1, how='all')
-    
+
     #Drop rows where there are no values.
     df = df.dropna(axis=0, how="all")
-    
+
     #check that there are any values to export.
-    if df.isna().all().all():    
+    if df.isna().all().all():
         print("WARNING: No positions found with set thresholds; Exiting...")
         exit(1)
-    
+
     #add the number of mutations and the average dG.
     df['n_mutations'] = df.count(axis=1)
     df['avg_dG'] = df.mean(axis=1, skipna=True)
-    
+
     #export.
     df = df.reset_index()
-    df.to_csv(f"filtered_{file[:-4]}.tsv", sep="\t")    
+    df.to_csv(f"filtered_{file[:-4]}.tsv", sep="\t")
 
     return
 
@@ -634,14 +634,14 @@ def output_file(df, file):
 def pocket_analysis(df, PDB, file):
     """
     A function that runs the fpocket analysis to find pockets
-    on the protein surface. This can be used to find response 
+    on the protein surface. This can be used to find response
     sites in pockets.
 
     Parameters
     ----------
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold and the distance
-    from mutation (x) to site (y) is larger than disance_threshold and the 
+    from mutation (x) to site (y) is larger than disance_threshold and the
     solvent accessibility of site (y) is larger than access_threshold.
     PDB : The PDB file used in the framework.
     file : If it is an UP or DOWN input.
@@ -651,10 +651,10 @@ def pocket_analysis(df, PDB, file):
     A filtered tsv file is exported.
 
     """
-    
-    #RUN THE FPOCKET ANALYSIS:    
+
+    #RUN THE FPOCKET ANALYSIS:
     command = f"fpocket -f {PDB}"
-    
+
     try:
         subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     except subprocess.CalledProcessError:
@@ -663,120 +663,120 @@ def pocket_analysis(df, PDB, file):
 
     structure_basename = PDB[:-4]
     list_of_pocket_pdbs = glob.glob(f"{structure_basename}_out/pockets/pocket*_atm.pdb")
-    
+
     pocket_residues = []
-    
+
     #For each pocket, find the residues
     for pocket_pdb_file in list_of_pocket_pdbs:
         structure = Bio.PDB.PDBParser().get_structure('pocket_file', pocket_pdb_file)[0]
         for i, residue in enumerate(structure.get_residues()):
             pocket_residues.append(f"{seq1(residue.get_resname())}{residue.get_id()[1]}")
 
-    #No residues in pockets means that there is no filter here. 
+    #No residues in pockets means that there is no filter here.
     if pocket_residues == []:
         print("WARNING: No residues found in pockets; Skipping...")
         return
 
-    pocket_residues = list(set(pocket_residues))
+    pocket_residues = sorted(list(set(pocket_residues)), key=lambda x: int(x[1:]))
     #Generate a file with the pocket residues. The aim of this file
     #is to have a list to quality control if needed.
     with open("pocket_residues.txt", "w") as f:
         for i in pocket_residues:
             f.write(i+"\n")
-        
+
     #limiting the search space to the residues of the pocket.
     selected_columns = [col for col in pocket_residues if col in df.columns]
     df = df[selected_columns]
 
-    #Drop columns where there are no values. 
+    #Drop columns where there are no values.
     df = df.dropna(axis=1, how='all')
-    
+
     #Drop rows where there are no values.
     df = df.dropna(axis=0, how="all")
-    
+
     #check that there are any values to export.
-    if df.isna().all().all():    
+    if df.isna().all().all():
         print("WARNING: No positions found with set thresholds; Exiting...")
         exit(1)
     else:
         print("Pockets successfully identified.")
-    
+
     #add the number of mutations and the average dG.
     df['n_mutations'] = df.count(axis=1)
     df['avg_dG'] = df.mean(axis=1, skipna=True)
-    
+
     #export.
     df = df.reset_index()
-    df.to_csv(f"filtered_{file.split('_')[0]}_pockets.tsv", sep="\t")    
+    df.to_csv(f"filtered_{file.split('_')[0]}_pockets.tsv", sep="\t")
 
     return
 
 def interface_analysis(df, file, interface_file, PDB):
     """
-    A function that takes a interfacefile, a file with 
+    A function that takes a interfacefile, a file with
     sites in the chosen interface.
 
     Parameters
     ----------
     df : A dataframe of mutations (x) and sites (y) with the allosigma
     calculated dG score is larger than the dG threshold and the distance
-    from mutation (x) to site (y) is larger than disance_threshold and the 
+    from mutation (x) to site (y) is larger than disance_threshold and the
     solvent accessibility of site (y) is larger than access_threshold.
     file : If it is an UP or DOWN input.
-    interface_file: A txt file containing sites of interest. 
+    interface_file: A txt file containing sites of interest.
 
     Returns
     -------
     A filtered tsv file is exported.
 
     """
-    
+
     #takes the input file and add the residues to a list.
-    interface_data = []  
+    interface_data = []
 
     with open(interface_file, "r") as f:
         for line in f:
             interface_data.append(line.strip())
-    
+
     interface_residues = list(set(interface_data))
     #remove empty lines
     interface_residues = [residue for residue in interface_data if residue]
-    
+
     residues_for_check = []
-    
+
     structure = Bio.PDB.PDBParser().get_structure('interface_control', PDB)[0]
     for i, residue in enumerate(structure.get_residues()):
         residues_for_check.append(f"{seq1(residue.get_resname())}{residue.get_id()[1]}")
-    
+
     for residue in interface_residues:
         if residue not in residues_for_check:
             print(f"Error: {residue} from interface file is not in the input structure; Exiting...")
             exit(1)
-    
+
     #limit the searchspace to this list
     selected_columns = [col for col in interface_residues if col in df.columns]
     df = df[selected_columns]
 
-    #Drop columns where there are no values. 
+    #Drop columns where there are no values.
     df = df.dropna(axis=1, how='all')
-    
+
     #Drop rows where there are no values.
     df = df.dropna(axis=0, how="all")
-    
+
     #check that there are any values to export.
-    if df.isna().all().all():    
+    if df.isna().all().all():
         print("WARNING: No positions found with set thresholds; Exiting...")
         exit(1)
     else:
         print("Interface residues successfully identified.")
-    
+
     #add the number of mutations and the average dG.
     df['n_mutations'] = df.count(axis=1)
     df['avg_dG'] = df.mean(axis=1, skipna=True)
-    
+
     #export.
     df = df.reset_index()
-    df.to_csv(f"filtered_{file.split('_')[0]}_interface.tsv", sep="\t")    
+    df.to_csv(f"filtered_{file.split('_')[0]}_interface.tsv", sep="\t")
 
     return
 
@@ -788,7 +788,7 @@ df = filter_on_dg(df, dg_threshold)
 df = filter_on_naccess(PDB, df, access_threshold)
 
 df = df.dropna(axis=1, how='all')
-df = df.dropna(axis=0, how="all") 
+df = df.dropna(axis=0, how="all")
 
 
 if args.distance_method == "fraction":
@@ -809,8 +809,8 @@ output_file(df, file)
 
 if args.pocket:
     pocket_analysis(df, PDB, file)
-    
-if args.interface: 
+
+if args.interface:
     interface_file = args.interface
     interface_analysis(df, file, interface_file, PDB)
 
