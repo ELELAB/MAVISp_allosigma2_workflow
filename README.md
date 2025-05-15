@@ -163,8 +163,8 @@ This script takes
 	| -------------------- | ------------------------------------------------- | ------------------------------ |
 	| `value`              | Cα-Cα distances with fixed cutoff                 | `-d value -v 10`               |
 	| `fraction`           | Cα-Cα distances as a fraction of median           | `-d fraction -f 0.5`           |
-        | `sidechain_value`    | Side-chain atom distances with fixed cutoff       | `-d sidechain_value -v 10`     |
-        | `sidechain_fraction` | Side-chain atom distances as a fraction of median | `-d sidechain_fraction -f 0.5` |
+	| `sidechain_value`    | Side-chain atom distances with fixed cutoff       | `-d sidechain_value -v 10`     |
+	| `sidechain_fraction` | Side-chain atom distances as a fraction of median | `-d sidechain_fraction -f 0.5` |
 
 - an accessibility cutoff value (0-100)
 - Can take the flag --pocket or --interface {file}, if a particular interface is of interest. 
