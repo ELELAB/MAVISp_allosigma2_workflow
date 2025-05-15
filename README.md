@@ -74,7 +74,7 @@ residue types and volumes
 
 ### Example
 
-See the `example/allosigma-classify` directory and the do.sh script within
+See the `example/protein_test/2.allosigma_classify` directory and the do.sh script within
 
 ## allosigma-heatmap
 
@@ -135,7 +135,7 @@ allosigma-classify
 
 ### Example
 
-See the `example/allosigma-classify` directory and the do.sh script within
+See the `example/protein_test/3.allosigma_heatmap` directory and the do.sh script within
 
 ## allosigma-flitering 
 
@@ -201,7 +201,7 @@ in the avg_dG column and the number of positions in then_mutations column.
 
 ### Example
 
-See the `example/allosigma-filtering` directory and the do.sh script within. 
+See the `example/protein_test/4a.allosigma_filtering` directory and the do.sh script within. 
 
 ## allosigma-visualization 
 
@@ -277,7 +277,7 @@ Action > Preset > b-factor putty
 
 ### Example
 
-See the `example/allosigma-visualization` directory and the do.sh script within. 
+See the `example/protein_test/5a.allosigma_visualization` directory and the do.sh script within. 
 
 Here are two examples; both p53 and the P153S down mutation, the grey figure illustrate the mutaational 
 site P153 with red, and the three sites in pockets affected in yellow. The other plot is the putty plot, 
