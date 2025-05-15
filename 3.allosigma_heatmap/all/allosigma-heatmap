@@ -313,9 +313,9 @@ if args.transpose:
         dh_down = dh_down.transpose()
 
 # write csv files
-    if args.mode == 'dg':
-        dg_up.to_csv('up_mutations.tsv', sep='\t')
-        dg_down.to_csv('down_mutations.tsv', sep='\t')
-    else:
-        dh_up.to_csv('dh_up_mutations.tsv', sep='\t')
-        dh_down.to_csv('dh_down_mutations.tsv', sep='\t')
+if args.mode == 'dg':
+    dg_up.to_csv('up_mutations.tsv', sep='\t')
+    dg_down.to_csv('down_mutations.tsv', sep='\t')
+else:
+    dh_up.to_csv('dh_up_mutations.tsv', sep='\t')
+    dh_down.to_csv('dh_down_mutations.tsv', sep='\t')
