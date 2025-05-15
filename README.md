@@ -157,16 +157,14 @@ This script takes
 	- Value: a specific value (in Å - e.g. 14) 
 	- Fraction: a fraction of the median (e.g. 0.9)
 	
-	The method and the mode are selected using the `-d` flag, with four possible options:
+	The method and threshold mode are selected using the `-d` flag, with four possible options:
 
- Option               | Description                                       | Example                        |
-| -------------------- | ------------------------------------------------- | ------------------------------ |
-| `value`              | Cα–Cα distances with fixed cutoff                 | `-d value -v 10`               |
-| `fraction`           | Cα–Cα distances as a fraction of the median       | `-d fraction -f 0.5`           |
-| `sidechain_value`    | Side-chain atom distances with fixed cutoff       | `-d sidechain_value -v 10`     |
-| `sidechain_fraction` | Side-chain atom distances as a fraction of median | `-d sidechain_fraction -f 0.5` |
-
-
+	 Option		     | Description                                        | Example
+	| -------------------- | ------------------------------------------------- | ------------------------------ |
+	| `value`              | Cα-Cα distances with fixed cutoff                 | `-d value -v 10`               |
+	| `fraction`           | Cα-Cα distances as a fraction of median           | `-d fraction -f 0.5`           |
+        | `sidechain_value`    | Side-chain atom distances with fixed cutoff       | `-d sidechain_value -v 10`     |
+        | `sidechain_fraction` | Side-chain atom distances as a fraction of median | `-d sidechain_fraction -f 0.5` |
 
 - an accessibility cutoff value (0-100)
 - Can take the flag --pocket or --interface {file}, if a particular interface is of interest. 
