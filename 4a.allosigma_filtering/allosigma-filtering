@@ -252,7 +252,7 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     # Find the first amino acid residue to determine the start position
 
-    distance_df = calculate_CA_distances(structure) 
+    distance_df = calculate_CA_distances(structure)
 
     #reduce distance_df to include only the residues close to each other
     #within the distance_threshold:
@@ -401,12 +401,9 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     # Find the first amino acid residue to determine the start position
-    distance_data = []
 
     distance_df = calculate_CA_distances(structure)
 
-    #convert to a pandas dataframe.
-    distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
     distance_median = distance_df.distance.median()
     threshold = distance_median * distance_threshold
     print(f"Median Distance is {distance_median}, hence choosen distance is {distance_median*distance_threshold}")
