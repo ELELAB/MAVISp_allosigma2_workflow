@@ -365,7 +365,7 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
     df = df.dropna(axis=0, how="all")
     #check if all where removed or continue the filtering.
 
-    distance_df = calculate_CA_distances(structure) 
+    distance_df = calculate_CA_distances(structure)
 
     create_arginine_list(df, distance_df, PDB, file)
 
@@ -530,7 +530,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
     df = df.dropna(axis=0, how="all")
     #check if all where removed or continue the filtering.
 
-    distance_df = calculate_CA_distances(structure) 
+    distance_df = calculate_CA_distances(structure)
 
     create_arginine_list(df, distance_df, PDB, file)
 
