@@ -143,9 +143,6 @@ def filter_on_dg(df, dg_threshold):
 
 def create_arginine_list(df, distance_df, PDB, file):
 
-    print('input df\n', df)
-    print('distance df\n', distance_df)
-
     name = file[:-4]
     distance_df.rename(columns={'distance': 'distance_CA'}, inplace=True)
 
@@ -155,22 +152,15 @@ def create_arginine_list(df, distance_df, PDB, file):
 
     arginine_sites = [i for i in df['mutation_site'].tolist() if i.startswith('R')]
 
-    print("df\n", df)
-    print('arginine sites', arginine_sites)
-
     # Pivot the DataFrame
     pivot_df = df.melt(id_vars='mutation_site', var_name='response_site', value_name='value').dropna()
-
-    print("pivot_df\n", pivot_df)
 
     #merge distance
     combined_df = pivot_df.merge(distance_df, left_on=["mutation_site", "response_site"],
                   right_on=["res1", "res2"], how='inner')
 
-    print("combined_df\n", combined_df)
     arginine_mutation_df = combined_df[combined_df['mutation_site'].isin(arginine_sites)]
 
-    print("arginine_mutation_df\n", arginine_mutation_df)
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     #part 2: argenine response sites
@@ -214,9 +204,29 @@ def create_arginine_list(df, distance_df, PDB, file):
     arginine_mutation_df['distance_CZ'] = cz_data_response
 
     arginine_mutation_df = arginine_mutation_df[['mutation_site', 'response_site', 'distance_CA', 'distance_CZ']]
-    print('final', arginine_mutation_df)
 
     arginine_mutation_df.to_csv(f"{name}_arginine_responder_distances_CA_CZ.csv")
+
+def calculate_CA_distances(structure):
+    distance_data = []
+
+    for i, residue_1 in enumerate(structure.get_residues()):
+        # Check if the residue is an amino acid (e.g., exclude cofactor)
+        if Bio.PDB.is_aa(residue_1):
+            for j, residue_2 in enumerate(structure.get_residues()):
+                # Check if the residue is an amino acid (e.g., exclude cofactor)
+                if Bio.PDB.is_aa(residue_2):
+                    # documentation that subtraction measure distance:
+                    # https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
+                    # under the question: "How do I measure distances?"
+                    distance = residue_1["CA"] - residue_2["CA"]
+                    res_1 = f"{seq1(residue_1.get_resname())}{residue_1.get_id()[1]}"
+                    res_2 = f"{seq1(residue_2.get_resname())}{residue_2.get_id()[1]}"
+                    distance_data.append((res_1, res_2, float(distance)))
+    #convert to a pandas dataframe.
+    distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
+
+    return distance_df
 
 def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
     """
@@ -241,22 +251,9 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     # Find the first amino acid residue to determine the start position
-    distance_data = []
-    for i, residue_1 in enumerate(structure.get_residues()):
-        # Check if the residue is an amino acid (e.g., exclude cofactor)
-        if Bio.PDB.is_aa(residue_1):
-            for j, residue_2 in enumerate(structure.get_residues()):
-                # Check if the residue is an amino acid (e.g., exclude cofactor)
-                if Bio.PDB.is_aa(residue_2):
-                    # documentation that subtraction measure distance:
-                    # https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
-                    # under the question: "How do I measure distances?"
-                    distance = residue_1["CA"] - residue_2["CA"]
-                    res_1 = f"{seq1(residue_1.get_resname())}{residue_1.get_id()[1]}"
-                    res_2 = f"{seq1(residue_2.get_resname())}{residue_2.get_id()[1]}"
-                    distance_data.append((res_1, res_2, float(distance)))
-    #convert to a pandas dataframe.
-    distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
+
+    distance_df = calculate_CA_distances(structure)
+
     #reduce distance_df to include only the residues close to each other
     #within the distance_threshold:
     distance_df_close = distance_df[distance_df.distance <= distance_threshold]
@@ -285,9 +282,10 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
         exit(1)
     else:
         print(f"Filtered successfully on distance, removing sites closer than {distance_threshold} Å.")
-        return df
 
-def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
+    return df
+
+def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
     and filters out mutation–response site pairs where any side-chain heavy atoms
@@ -366,6 +364,11 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold):
     df = df.dropna(axis=1, how="all")
     df = df.dropna(axis=0, how="all")
     #check if all where removed or continue the filtering.
+
+    distance_df = calculate_CA_distances(structure)
+
+    create_arginine_list(df, distance_df, PDB, file)
+
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
         exit(1)
@@ -393,25 +396,14 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
     df : A dataframe where the local connection values are excluded.
 
     """
+
+    df = df.copy()
     pdb_id = op.splitext(PDB)[0]
     structure = Bio.PDB.PDBParser().get_structure(pdb_id, PDB)[0]
     # Find the first amino acid residue to determine the start position
-    distance_data = []
-    for i, residue_1 in enumerate(structure.get_residues()):
-        # Check if the residue is an amino acid (e.g., exclude cofactor)
-        if Bio.PDB.is_aa(residue_1):
-            for j, residue_2 in enumerate(structure.get_residues()):
-                # Check if the residue is an amino acid (e.g., exclude cofactor)
-                if Bio.PDB.is_aa(residue_2):
-                    # documentation that subtraction measure distance:
-                    # https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
-                    # under the question: "How do I measure distances?"
-                    distance = residue_1["CA"] - residue_2["CA"]
-                    res_1 = f"{seq1(residue_1.get_resname())}{residue_1.get_id()[1]}"
-                    res_2 = f"{seq1(residue_2.get_resname())}{residue_2.get_id()[1]}"
-                    distance_data.append((res_1, res_2, float(distance)))
-    #convert to a pandas dataframe.
-    distance_df = pd.DataFrame(distance_data, columns=["res1", "res2", "distance"])
+
+    distance_df = calculate_CA_distances(structure)
+
     distance_median = distance_df.distance.median()
     threshold = distance_median * distance_threshold
     print(f"Median Distance is {distance_median}, hence choosen distance is {distance_median*distance_threshold}")
@@ -445,7 +437,7 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
         print(f"Filtered successfully on distance, removing sites closer than {distance_median*distance_threshold} Å.")
         return df, distance_median
 
-def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold):
+def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
     and filters out mutation–response site pairs where any side-chain heavy atoms
@@ -537,6 +529,11 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
     df = df.dropna(axis=1, how="all")
     df = df.dropna(axis=0, how="all")
     #check if all where removed or continue the filtering.
+
+    distance_df = calculate_CA_distances(structure)
+
+    create_arginine_list(df, distance_df, PDB, file)
+
     if df.isna().all().all():
         print("WARNING: No dG filtered mutations satisfy the filtering on distance; Exiting...")
         exit(1)
@@ -790,27 +787,26 @@ df = filter_on_naccess(PDB, df, access_threshold)
 df = df.dropna(axis=1, how='all')
 df = df.dropna(axis=0, how="all")
 
-
 if args.distance_method == "fraction":
-    df, distance_median = filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file)
+    filtered_df, distance_median = filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file)
 elif args.distance_method == "value":
-    df = filter_on_distance_value_biopython(PDB, df, distance_threshold, file)
+    filtered_df = filter_on_distance_value_biopython(PDB, df, distance_threshold, file)
 elif args.distance_method in {"sidechain_fraction", "sidechain_value"}:
     try:
         if args.distance_method == "sidechain_fraction":
-            df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold)
+            filtered_df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file)
         elif args.distance_method == "sidechain_value":
-            df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold)
+            filtered_df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file)
     except ValueError as error:
         print(f"Error in sidechain distance filtering:{error}")
         exit(1)
 
-output_file(df, file)
+output_file(filtered_df, file)
 
 if args.pocket:
-    pocket_analysis(df, PDB, file)
+    pocket_analysis(filtered_df, PDB, file)
 
 if args.interface:
     interface_file = args.interface
-    interface_analysis(df, file, interface_file, PDB)
+    interface_analysis(filtered_df, file, interface_file, PDB)
 
