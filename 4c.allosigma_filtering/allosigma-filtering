@@ -578,10 +578,14 @@ def filter_on_naccess(PDB, df, access_threshold):
     #convert the content to match the df column names
     rsa['rest'] = rsa['rest'].apply(lambda x: seq1(x))
     rsa["POS"] = rsa['rest'] + rsa["resn"].astype(str)
+
     #find the buried sites
     buried_sites = list(rsa[rsa.sas_sc_rel < access_threshold].POS)
+
     #drop the buried sites
-    df = df.drop(columns=buried_sites)
+    existing_buried_sites = [res for res in buried_sites if res in df.columns]
+    df = df.drop(columns=existing_buried_sites)
+
     if df.isna().all().all():
         print("WARNING: No dG and distance mutations satisfy the filtering on accessibility; Exiting...")
         exit(1)
