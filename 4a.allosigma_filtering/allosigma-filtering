@@ -704,7 +704,7 @@ def pocket_analysis(df, PDB, file):
 
     #export.
     df = df.reset_index()
-    df.to_csv(f"filtered_{file[:-4]}_pockets.tsv", sep="\t")
+    df.to_csv(f"filtered_{'_'.join(file[:-4].split('_')[:-1])}_pockets.tsv", sep="\t")
 
     return
 
@@ -773,7 +773,7 @@ def interface_analysis(df, file, interface_file, PDB):
 
     #export.
     df = df.reset_index()
-    df.to_csv(f"filtered_{file[:-4]}_interface.tsv", sep="\t")
+    df.to_csv(f"filtered_{'_'.join(file[:-4].split('_')[:-1])}_pockets.tsv", sep="\t")
 
     return
 
