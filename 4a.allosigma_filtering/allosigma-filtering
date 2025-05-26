@@ -287,8 +287,8 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
 
 def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file):
     """
-    A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
-    and filters out mutation–response site pairs where any side-chain heavy atoms
+    A function that takes the dataframe produced by filter_on_dg(df, dg_threshold) and
+    filters out mutation–response site pairs whose backbone and side-chain heavy atoms
     (or glycine sidechain hydrogen atoms) are closer than the defined distance_threshold.
 
     Parameters
@@ -318,17 +318,17 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
         atoms = []
         #handle glycine exception
         if residue.get_resname() == "GLY":
-            H_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3"}]
-            if len(H_atoms) != 2:
+            gly_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3","N","C","CA","0"}]
+            if len(H_atoms) != 6:
                 raise ValueError(
                     f"Incomplete structure. Glycine at position "
                     f"{residue.get_id()[1]} is missing H atoms."
                     )
-            atoms.extend(H_atoms)
+            atoms.extend(gly_atoms)
         #handle rest of the residues
         else:
             for atom in residue:
-                if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
+                if atom.element != "H":
                     atoms.append(atom)
             if not atoms:
                 raise ValueError(
@@ -439,8 +439,8 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
 
 def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file):
     """
-    A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
-    and filters out mutation–response site pairs where any side-chain heavy atoms
+    A function that takes the dataframe produced by filter_on_dg(df, dg_threshold) and
+    filters out mutation–response site pairs where whose backbone side-chain heavy atoms
     (or glycine sidechain hydrogen atoms) are closer than the defined threshold.
 
     Parameters
@@ -470,8 +470,8 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
         atoms = []
         #handle glycine exception
         if residue.get_resname() == "GLY":
-            H_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3"}]
-            if len(H_atoms) != 2:
+            gly_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3","N","C","CA","O"}]
+            if len(H_atoms) != 6:
                 raise ValueError(
                     f"Incomplete structure. Glycine at position "
                     f"{residue.get_id()[1]} is missing H atoms."
@@ -480,7 +480,7 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
         #handle rest of the residues
         else:
             for atom in residue:
-                if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
+                if atom.element != "H":
                     atoms.append(atom)
             if not atoms:
                 raise ValueError(
