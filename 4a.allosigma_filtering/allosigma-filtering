@@ -57,9 +57,9 @@ parser.add_argument("-t", '--threshold',
                     help='The minimum value threshold for dG values in kcal/mol, integer')
 
 parser.add_argument("-d", "--distance_method",
-                    choices=["fraction", "value","sidechain_fraction","sidechain_value"],
+                    choices=["fraction", "value","allatoms_fraction","allatoms_value"],
                     required=True,
-                    help="Choose the method for setting the threshold:'fraction','value','sidesidechain_fraction','sidechain_value'")
+                    help="Choose the method for setting the threshold:'fraction','value','allatoms_fraction','allatoms_value'")
 
 parser.add_argument("-f", "--fraction",
                     type=float,
@@ -85,14 +85,14 @@ parser.add_argument('--pocket', action='store_true', help='Addition of pocket ba
 
 args = parser.parse_args()
 
-if args.distance_method in ["fraction", "sidechain_fraction"]:
+if args.distance_method in ["fraction", "allatoms_fraction"]:
     if args.fraction is None:
-        parser.error("--fraction is required when distance_method is 'fraction' or 'sidechain_fraction'")
+        parser.error("--fraction is required when distance_method is 'fraction' or 'allatoms_fraction'")
     distance_threshold = args.fraction
 
-elif args.distance_method in ["value", "sidechain_value"]:
+elif args.distance_method in ["value", "allatoms_value"]:
     if args.value is None:
-        parser.error("--value is required when distance_method is 'value' or 'sidechain_value'")
+        parser.error("--value is required when distance_method is 'value' or 'allatoms_value'")
     distance_threshold = args.value
 
 dg_threshold = args.threshold
@@ -285,12 +285,11 @@ def filter_on_distance_value_biopython(PDB, df, distance_threshold, file):
 
     return df
 
-def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file):
+def filter_on_allatoms_distance_value_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
-    and filters out mutation–response site pairs whose backbone or side-chain heavy
-    atoms (or glycine sidechain hydrogen atoms) are closer than the defined
-    distance_threshold.
+    and filters out mutation–response site pairs where any heavy atom
+    are closer than the defined distance_threshold.
 
     Parameters
     ----------
@@ -318,24 +317,14 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
         #list to store atom objects
         atoms = []
         #handle glycine exception
-        if residue.get_resname() == "GLY":
-            gly_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3","C","N","CA","O"}]
-            if len(H_atoms) != 6:
-                raise ValueError(
-                    f"Incomplete structure. Glycine at position "
-                    f"{residue.get_id()[1]} is missing H atoms."
-                    )
-            atoms.extend(gly_atoms)
-        #handle rest of the residues
-        else:
-            for atom in residue:
-                if atom.element != "H":
-                    atoms.append(atom)
-            if not atoms:
-                raise ValueError(
-                    f"Incomplete structure. Residue at position "
-                    f"{residue.get_id()[1]} is missing side-chain atoms."
-                    )
+        for atom in residue:
+            if atom.element != "H":
+                atoms.append(atom)
+        if not atoms:
+            raise ValueError(
+                f"Incomplete structure. Residue at position "
+                f"{residue.get_id()[1]} is missing side-chain atoms."
+                )
         #store residue ID and atoms
         residue_id = f"{Bio.PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
@@ -438,12 +427,11 @@ def filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file):
         print(f"Filtered successfully on distance, removing sites closer than {distance_median*distance_threshold} Å.")
         return df, distance_median
 
-def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file):
+def filter_on_allatoms_distance_fraction_biopython(PDB, df, distance_threshold, file):
     """
     A function that takes the dataframe produced by filter_on_dg(df, dg_threshold)
-    and filters out mutation–response site pairs whose backbone or side-chain heavy                                                      atoms (or glycine sidechain hydrogen atoms) are closer than the defined
-    atoms (or glycine sidechain hydrogen atoms) are closer than the defined
-    distance_threshold.
+    and filters out mutation–response site pairs where any heavy atom
+    are closer than the defined threshold.
 
     Parameters
     ----------
@@ -470,25 +458,14 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
             continue
         #list to store atom objects
         atoms = []
-        #handle glycine exception
-        if residue.get_resname() == "GLY":
-            gly_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3","C","N","CA","O"}]
-            if len(H_atoms) != 6:
-                raise ValueError(
-                    f"Incomplete structure. Glycine at position "
-                    f"{residue.get_id()[1]} is missing H atoms."
-                    )
-            atoms.extend(gly_atoms)
-        #handle rest of the residues
-        else:
-            for atom in residue:
-                if atom.element != "H":
-                    atoms.append(atom)
-            if not atoms:
-                raise ValueError(
-                    f"Incomplete structure. Residue at position "
-                    f"{residue.get_id()[1]} is missing side-chain atoms."
-                    )
+        for atom in residue:
+            if atom.element != "H":
+                atoms.append(atom)
+        if not atoms:
+            raise ValueError(
+                f"Incomplete structure. Residue at position "
+                f"{residue.get_id()[1]} is missing side-chain atoms."
+                )
         #store residue ID and atoms
         residue_id = f"{Bio.PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
@@ -797,14 +774,14 @@ if args.distance_method == "fraction":
     filtered_df, distance_median = filter_on_distance_fraction_biopython(PDB, df, distance_threshold, file)
 elif args.distance_method == "value":
     filtered_df = filter_on_distance_value_biopython(PDB, df, distance_threshold, file)
-elif args.distance_method in {"sidechain_fraction", "sidechain_value"}:
+elif args.distance_method in {"allatoms_fraction", "allatoms_value"}:
     try:
-        if args.distance_method == "sidechain_fraction":
-            filtered_df, distance_median = filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold, file)
-        elif args.distance_method == "sidechain_value":
-            filtered_df = filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, file)
+        if args.distance_method == "allatoms_fraction":
+            filtered_df, distance_median = filter_on_allatoms_distance_fraction_biopython(PDB, df, distance_threshold, file)
+        elif args.distance_method == "allatoms_value":
+            filtered_df = filter_on_allatoms_distance_value_biopython(PDB, df, distance_threshold, file)
     except ValueError as error:
-        print(f"Error in sidechain distance filtering:{error}")
+        print(f"Error in distance filtering:{error}")
         exit(1)
 
 output_file(filtered_df, file)
