@@ -151,7 +151,7 @@ This script takes
 	
 	Two distance calculation methods are available:
 	- Cα–Cα distances: computes the distance between backbone alpha carbon atoms
-	- Side-chain heavy atom distances: computes the shortest distance between any side-chain heavy atoms (Glycine uses HA2/HA3) 
+	- Heavy atom distances: computes the shortest distance between any heavy atom
 	
 	Each distance method supports two threshold modes:
 	- Value: a specific value (in Å - e.g. 14) 
@@ -163,8 +163,8 @@ This script takes
 	| -------------------- | ------------------------------------------------- | ------------------------------ |
 	| `value`              | Cα-Cα distances with fixed cutoff                 | `-d value -v 10`               |
 	| `fraction`           | Cα-Cα distances as a fraction of median           | `-d fraction -f 0.5`           |
-	| `sidechain_value`    | Side-chain atom distances with fixed cutoff       | `-d sidechain_value -v 10`     |
-	| `sidechain_fraction` | Side-chain atom distances as a fraction of median | `-d sidechain_fraction -f 0.5` |
+	| `allatoms_value`    | Heavy atom distances with fixed cutoff       | `-d allatoms_value -v 10`     |
+	| `allatoms_fraction` | Heavy atom distances as a fraction of median | `-d allatoms_fraction -f 0.5` |
 
 - an accessibility cutoff value (0-100)
 - Can take the flag --pocket or --interface {file}, if a particular interface is of interest. 
