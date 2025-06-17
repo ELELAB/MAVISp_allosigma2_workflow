@@ -317,24 +317,14 @@ def filter_on_sidechain_distance_value_biopython(PDB, df, distance_threshold, fi
         #list to store atom objects
         atoms = []
         #handle glycine exception
-        if residue.get_resname() == "GLY":
-            H_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3"}]
-            if len(H_atoms) != 2:
-                raise ValueError(
-                    f"Incomplete structure. Glycine at position "
-                    f"{residue.get_id()[1]} is missing H atoms."
-                    )
-            atoms.extend(H_atoms)
-        #handle rest of the residues
-        else:
-            for atom in residue:
-                if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
-                    atoms.append(atom)
-            if not atoms:
-                raise ValueError(
-                    f"Incomplete structure. Residue at position "
-                    f"{residue.get_id()[1]} is missing side-chain atoms."
-                    )
+        for atom in residue:
+            if atom.element != "H":
+                atoms.append(atom)
+        if not atoms:
+            raise ValueError(
+                f"Incomplete structure. Residue at position "
+                f"{residue.get_id()[1]} is missing side-chain atoms."
+                )
         #store residue ID and atoms
         residue_id = f"{Bio.PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
@@ -468,25 +458,14 @@ def filter_on_sidechain_distance_fraction_biopython(PDB, df, distance_threshold,
             continue
         #list to store atom objects
         atoms = []
-        #handle glycine exception
-        if residue.get_resname() == "GLY":
-            H_atoms = [atom for atom in residue if atom.get_name() in {"HA2","HA3"}]
-            if len(H_atoms) != 2:
-                raise ValueError(
-                    f"Incomplete structure. Glycine at position "
-                    f"{residue.get_id()[1]} is missing H atoms."
-                    )
-            atoms.extend(H_atoms)
-        #handle rest of the residues
-        else:
-            for atom in residue:
-                if atom.element != "H" and atom.get_name() not in {"N", "CA", "C", "O"}:
-                    atoms.append(atom)
-            if not atoms:
-                raise ValueError(
-                    f"Incomplete structure. Residue at position "
-                    f"{residue.get_id()[1]} is missing side-chain atoms."
-                    )
+        for atom in residue:
+            if atom.element != "H":
+                atoms.append(atom)
+        if not atoms:
+            raise ValueError(
+                f"Incomplete structure. Residue at position "
+                f"{residue.get_id()[1]} is missing side-chain atoms."
+                )
         #store residue ID and atoms
         residue_id = f"{Bio.PDB.Polypeptide.three_to_one(residue.get_resname())}{residue.get_id()[1]}"
         residue_atoms[residue_id] = atoms
