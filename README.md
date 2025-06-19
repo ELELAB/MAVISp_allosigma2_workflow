@@ -13,10 +13,10 @@ In the folder ensemble_mode:
 The second protocol depends on the output from AlloSigMA2 and it meant to be used to analyze results from a PSN-MD approach, i.e., the analyses of the protein conformations from a Molecular Dynamics (MD) trajectories using an atomic contact Protein Structure Network (PSN). In particular, we used the results from path analysis from the acPSN-MD to further validate with an all-atom model and accounting for protein dynamics, the pairs of allosteric mutations and response sites proposed by the AlloSigMA2 workflow. This protocol is  
 See below for the description of each individual script in details - to perform the steps as applied in MAVISp please refer to each individual subfolder and their script and readme. This protocol is also applied as workflow for the LONG_RANGE modules of the MAVISP framework for variant effects in the ensemble mode (https://www.biorxiv.org/content/10.1101/2022.10.22.513328v4).
 
-## simple_mode folder
+# simple_mode folder
 
 
-The protocol is divided in five steps:
+This protocol is divided in five steps:
 
 1.allosteric_signalling_map, here the output generated from the AlloSigMA2 webserver (https://allosigma.bii.a-star.edu.sg/home/) for an allosteric signaling map of the structure of interest is stored
 
@@ -298,10 +298,6 @@ Action > Preset > b-factor putty
 
 - pymol sessions and altered pdbs. 
 
-
-## ensemble_mode folder
-
-
 ### Example
 
 See the `example/allosigma-visualization` directory and the do.sh script within. 
@@ -320,3 +316,6 @@ areas as in the first plots, but also see how another loop is affected heavily i
 if you use the code in this repository please cite our work:
 
 Arnaudi M, Beltrame L, Degn K et al. MAVISp: Multi-layered Assessment of VarIants by Structure for proteins, biorxiv,  https://doi.org/10.1101/2022.10.22.513328 
+
+
+# ensemble_mode folder
