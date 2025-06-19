@@ -13,11 +13,27 @@ In the folder ensemble_mode:
 The second protocol depends on the output from AlloSigMA2 and it meant to be used to analyze results from a PSN-MD approach, i.e., the analyses of the protein conformations from a Molecular Dynamics (MD) trajectories using an atomic contact Protein Structure Network (PSN). In particular, we used the results from path analysis from the acPSN-MD to further validate with an all-atom model and accounting for protein dynamics, the pairs of allosteric mutations and response sites proposed by the AlloSigMA2 workflow. This protocol is  
 See below for the description of each individual script in details - to perform the steps as applied in MAVISp please refer to each individual subfolder and their script and readme. This protocol is also applied as workflow for the LONG_RANGE modules of the MAVISP framework for variant effects in the ensemble mode (https://www.biorxiv.org/content/10.1101/2022.10.22.513328v4).
 
+## simple_mode folder
 
 
+The protocol is divided in five steps:
 
+1.allosteric_signalling_map, here the output generated from the AlloSigMA2 webserver (https://allosigma.bii.a-star.edu.sg/home/) for an allosteric signaling map of the structure of interest is stored
+
+2.allosigma_classify for quality control of the input files and identify the mutations that have structural coverage, as well to associate each mutation to the DOWN or UP class of mutations covered by AlloSigMA2
+
+3.allosigma_heatmap where the allosteric signaling map of allosteric mutations of interest and their response site is extracted in the csv format and the exploratory analyses on the allosteric free energy distributions are performed
+
+4.allosigma_filtering where the filtering step based on distances, absolute values of allosteric free energy, solvent accessibility and pockets is carried out
+
+5.allosigma_visualization to map and visualize on the 3D structure the pairs of mutation and response sites after filtering
+
+More details on each step and corresponding script is provided in the Sections below.
+
+## allosigma-classify
 
 ### Description
+
 
 This scripts takes 
 
@@ -27,11 +43,8 @@ This scripts takes
 - a volume cut-off
 - an AlloSigMA2 session file downloaded from the website, output of the complete allosteric signaling map calculation
 
-Allosigma-classify has two purposes, one is to quality control the input, 
-that is, checking that mutations are covered by the structure and that the
-structure used in the script is identical as the structure used on the webserver. 
-Secondly, for each mutation covered by the structure, it calculates the difference 
-between mutated and wild-type residue type:
+Allosigma-classify has two purposes, one is to quality control the input,  that is, checking that mutations are covered by the structure and that the
+structure used in the script is identical as the structure used on the webserver.  Secondly, for each mutation covered by the structure, it calculates the difference  between mutated and wild-type residue type:
 
 `delta = volume(mutated_residue) - volume(wt_residue)`
 
@@ -41,15 +54,10 @@ and classifies the mutations according to three classes:
 - `UP`, if `abs(delta) > cutoff && delta > 0`
 - `DOWN`, if `abs(delta) < cutoff && delta < 0`
 
-this is useful to decide how to classify mutations to be given as input to the
-AlloSigMA2 web server and matches its mutation model. The UP and DOWN classes
-include mutation that significantly change in residue volume (in either direction)
-and the NA class contains mutations that don't change significantly the residue volume.
+this is useful to decide how to classify mutations to be given as input to the AlloSigMA2 web server and matches its mutation model. The UP and DOWN classes
+include mutation that significantly change in residue volume (in either direction) and the NA class contains mutations that don't change significantly the residue volume.
 
-By default, we set the volume cut-off to 5 A**3. This is because we want to discard from the
-analysis mutations that impart small changes of steric hindrance (as for instance Y to F or
-S to A) for which we do not expect the AlloSigma2 prediction to be reliable. Details on this
-analysis are available on our publication:
+By default, we set the volume cut-off to 5 A**3. This is because we want to discard from the analysis mutations that impart small changes of steric hindrance (as for instance Y to F or S to A) for which we do not expect the AlloSigma2 prediction to be reliable. Details on this analysis are available on our publication:
 
     Degn K, Beltrame L, Dahl Hede F, Sora V, Nicolaci V, Vabistsevits M, Schmiegelow K, Wadt K,
     Tiberti M, Lambrughi M, Papaleo E. Cancer-related Mutations with Local or Long-range Effects 
@@ -289,6 +297,10 @@ Action > Preset > b-factor putty
 ### Output 
 
 - pymol sessions and altered pdbs. 
+
+
+## ensemble_mode folder
+
 
 ### Example
 
