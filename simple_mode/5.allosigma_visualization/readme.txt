@@ -1,3 +1,5 @@
+# on our local server we have prepared a python env that needs to be sourced to run
+module load python
 
 #### NOTICE !!
 #### OPTIONAL STEP IF YOU NEED TO UNDERSTAND THE OUTPUT

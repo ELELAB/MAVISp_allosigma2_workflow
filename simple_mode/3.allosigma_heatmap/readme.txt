@@ -1,5 +1,8 @@
 #heatmap allosigma
 
+# on our local server we have prepared a python env that needs to be sourced to run
+module load python
+
 #Requirements
 - output from allosigma_classify
 - output from allosteric signalling map,  i.e. NUI8P9VE.zip
