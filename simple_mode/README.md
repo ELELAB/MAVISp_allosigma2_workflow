@@ -308,3 +308,6 @@ if you use the code in this repository please cite our work:
 
 Arnaudi M, Beltrame L, Degn K et al. MAVISp: Multi-layered Assessment of VarIants by Structure for proteins, biorxiv,  https://doi.org/10.1101/2022.10.22.513328 
 
+Krzesińska K,  Degn K, Tiberti M and Papaleo E Deciphering Long-Range Effects of Mutations: An Integrated Approach Using Elastic Network  Models and Protein Structure Networks. Available at SSRN: https://ssrn.com/abstract=5187701 or http://dx.doi.org/10.2139/ssrn.5187701
+
+
