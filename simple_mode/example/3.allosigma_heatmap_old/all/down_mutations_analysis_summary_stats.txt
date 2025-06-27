@@ -1,0 +1,12 @@
+Summary Statistics:
+mean: -0.6060824841851612
+median: -0.8776361947572098
+std_dev: 1.130420671087999
+min: -3.139885223755653
+max: 7.601139871887947
+shapiro_statistic: 0.8529613683344448
+shapiro_p_value: 4.96555917453527e-78
+
+Shapiro-Wilk Test for Normality:
+Statistic: 0.8529613683344448
+P-value: 4.96555917453527e-78

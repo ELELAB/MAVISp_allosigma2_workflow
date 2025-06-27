@@ -2,17 +2,19 @@
 #to match the mutation to the UP or DOWN model of allosigma
 #NA is used in cases of mutations that cannot be modelled due to small changes in size
 
-#source python env.
-#module load python
+# on our local server we have prepared a python env that needs to be sourced to run
+module load python
+
 #Requirements
 - allosigma-classify
 - aminoacids.dat with volume value of aminoacid (Ang^3)
 - muts.dat with your mutation list one letter code, i.e. A119G
 - {file}.pdb, the file you used in the webserver
 
-#the muts.dat in this case is a copy of mutation_list.txt from the cancermuts folder
+#the muts.dat in this case is a copy of mutation_list.txt from the cancermuts folder if you work with MAVISp
+#if you don't you would need to generate your own similar input file 
 
-cp /data/user/shared_projects/mavisp/GENE_NAME/cancermuts/mutlist_DDMMYYYY.txt muts.dat 
+cp [...]/mavisp/GENE_NAME/cancermuts/mutlist_DDMMYYYY.txt muts.dat 
 
 #IF you have multiple domains you need to run the domains script: 
 
@@ -29,5 +31,4 @@ bash do.sh file.pdb ../1.allosteric_signalling_map/allosigmazipfile.zip muts.dat
 
 #IF you have multiple domains:
 bash do.sh file.pdb ../1.allosteric_signalling_map/allosigmazipfile.zip muts_1-200.dat
-
 

@@ -1,4 +1,4 @@
-#source python env.
+# on our local server we have prepared a python env that needs to be sourced to run
 module load python
 
 #Requirements
@@ -6,7 +6,6 @@ module load python
 - file.pdb
 - up_mutations.tsv
 - down_mutations.tsv
-#having run classify and heatmap in raw_data - copy the relevant files from there
 
 bash do.sh file.pdb
 

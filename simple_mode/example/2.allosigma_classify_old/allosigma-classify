@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+
+# allosigma-classify
+# Copyright (C) 2023 Matteo Tiberti & Kristine Degn, Cancer structural biology,
+# Danish Cancer Institute
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+import pandas as pd
+from biopandas.pdb import PandasPdb
+import argparse
+from sys import exit
+from zipfile import ZipFile
+import json
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('mutations', help='file containing set of mutations to be studied')
+parser.add_argument('structure', help='pdb file containing the model to be studied')
+parser.add_argument('aminoacids', help='file containing volume of aminoacids')
+parser.add_argument('allosigmazip', help='zipfile containing the output from allosigma')
+parser.add_argument('-o', '--output', dest='output', default='allosigma-mode.tsv')
+parser.add_argument('-c', '--cutoff', dest='cutoff', type=float, default=5.0, help="cut-off to identify negligible differences (default: 5.0, considering the default aminoacids.dat file that is in A**3)")
+
+args = parser.parse_args()
+
+volumes = pd.read_csv(args.aminoacids)
+
+wts = []
+muts = []
+nums = []
+mutations = []
+
+def allosigma_classify(row, cutoff):
+    if abs(row['delta']) <= cutoff:
+        return 'NA'
+    if row['delta'] > 0:
+        return 'UP'
+    return 'DOWN'
+
+def three_to_one(amino_acid):
+    #Function to convert a list of residues from the PDB file in 
+    #three letter naming convention to one letter convention.
+    amino_acid = amino_acid.upper() #to be consistent.
+    #dictionary with the conversions:
+    amino_acid_mapping = {
+        'ASP': 'D', 'VAL': 'V', 'ALA': 'A', 'MET': 'M', 'ASN': 'N',
+        'PHE': 'F', 'GLY': 'G', 'LEU': 'L', 'ILE': 'I', 'THR': 'T',
+        'PRO': 'P', 'CYS': 'C', 'SER': 'S', 'ARG': 'R', 'TYR': 'Y',
+        'GLN': 'Q', 'LYS': 'K', 'TRP': 'W', 'GLU': 'E', 'HIS': 'H'}
+    #Apply:
+    return amino_acid_mapping.get(amino_acid, None)
+
+def structure_df(structure):
+    #function to import the pdb file and read the residues and positions. 
+    #this is used to check if the mutations in the mutation list are in 
+    #accordance with the positions and wt residue in the structure. 
+    #Biopandas to read the pdb file.
+    ppdb_df =  PandasPdb().read_pdb(structure)
+    df = ppdb_df.df['ATOM']
+    #keep only one record of each position, drop_duplicates to avoid duplicates of 
+    # CA with different occurence. 
+    df = df[df.atom_name == "CA"][['residue_name', 'residue_number', 'chain_id']].drop_duplicates(keep="first")
+    #convert three letter amino acid codes to one letter codes. 
+    one_letter_amino_acids = [three_to_one(aa) for aa in df.residue_name]
+    df['residue'] = one_letter_amino_acids
+    #rename to fit the allosigma namings and reduce dataframe. 
+    df = df.rename(columns={"residue": "wt_residue", "residue_number": "position", "chain_id": "chain"})
+    df = df[['wt_residue', 'position', "chain"]]
+    return df
+
+def import_allosigma(allosigmazip):
+    #open the allosigma session file and check its content and create a warning
+    #if the file name is different. 
+        
+    zip = ZipFile(allosigmazip)
+    # find the file name of the PDB that has been used
+    filenames = [ f.filename for f in zip.filelist ]
+    # test/WorkFiles/MaskedPDB/
+    pdbs = list(filter(lambda x: x.startswith('WorkFiles/MaskedPDB/') and x.endswith('.masked.pdb'), filenames))
+    if len(pdbs) == 0:
+        print("ERROR: expected PDB file not found in data; Exiting...")
+        exit(1)
+    elif len(pdbs) > 1:
+        print("ERROR: more than one PDB file found in data; Exiting...")
+        exit(1)
+    
+    #get the pdb name used in allosigma2
+    
+    #pdb_basename = pdbs[0].split("/")[-1].split(".")[0]
+    pdb_basename = Path(pdbs[0]).stem.split('.')[0]
+    #pdb_name = f'{pdb_basename}.pdb'
+    
+    print(f"args.structure: {args.structure}")
+    print(f"args.structure.stem: {Path(args.structure).stem}")
+
+    #check that the name is identical.
+    if pdb_basename != Path(args.structure).stem:
+        print(f"WARNING: the input file used on Allosigma2 webserver was {pdb_basename}.pdb, input here is {Path(args.structure).stem}.pdb. Ensure they are identical.")
+    
+    #generate the position list from allosigma2. Contains all positions of allosigma input structure.
+    try:
+        with zip.open(f'WorkFiles/JSONObjs/{pdb_basename}_mutationlist.json') as fh:
+            mutation_list = json.load(fh)
+    except KeyError:
+        print("ERROR: the AlloSigMA session file doesn't contain expected data. Exiting...")
+        exit(1)
+        
+    return mutation_list
+
+def convert_allosigma_muts(mutation_list):
+    #convert the position list in allosigma to match the 
+    # structure data.
+    AA = []
+    pos = []
+    chain = []
+    
+    for mutation in mutation_list:
+        AA.append(mutation[:3])
+        pos.append(int(mutation[3:-2]))
+        chain.append(mutation[-1])
+        
+    AA = [three_to_one(aa) for aa in AA]
+    
+    df = pd.DataFrame({'wt_residue': AA,
+                       'position': pos,
+                       'chain': chain})
+    
+    return df
+    
+with open(args.mutations) as fh:
+    for line in fh:
+        line = line.strip()
+        wts.append(line[0])
+        muts.append(line[-1])
+        nums.append(int(line[1:-1]))
+        mutations.append(line)
+
+data = pd.DataFrame({'mutation' : mutations,
+                     'wt_residue' : wts ,
+                     'position' : nums ,
+                     'mutated_residue' : muts})
+
+#generate the dataframe with the residue names and structure used on the 
+#allosigma2 webserver:
+structure_df = structure_df(args.structure)
+
+#Merge the mutation data with the structure data, this removes positions 
+#in the mutation file, that are outside the input domain, but not any 
+#wrongful wt residues in the mutation file. 
+merged_data = pd.merge(data, structure_df, on=['position', "wt_residue"])
+
+#check if there are any mutations not matching the input.
+#exit with message if true.
+if len(data) > len(merged_data):
+    wrong_muts = list(set(data.mutation) - set(merged_data.mutation))
+    print(f"ERROR: Mutation file contains positons that are not avialable in the input structure. Mutations not matching input structure: {', '.join(wrong_muts)}. Exiting...")
+    exit(1)
+
+# load contents of the allosigma session file
+mutation_list = import_allosigma(args.allosigmazip)
+allosigma_df = convert_allosigma_muts(mutation_list)
+
+#check if the structure list from allosigma is identical to the input structure
+#for this script. 
+if not structure_df.equals(allosigma_df):
+    chains = set(allosigma_df.chain)
+    for chain in chains: 
+        allo_df = allosigma_df[allosigma_df.chain == chain]
+        struc_df = structure_df[structure_df.chain == chain]
+        
+        allo_df['site'] = allo_df['wt_residue'] + allo_df['position'].astype(str)
+        allo_sites = list(allo_df['site'])
+        struc_df['site'] = struc_df['wt_residue'] + struc_df['position'].astype(str)
+        struc_sites = list(struc_df['site'])
+        
+        missing_sites = list(set(struc_sites)-set(allo_sites))
+        
+        if len(struc_sites) > len(allo_sites):
+            print(f"ERROR: the input structure contains more sites than the structure used in AlloSigMA2. The sites not found are: {', '.join(missing_sites)}. Exiting...")
+            exit(1)
+            
+        elif len(allo_sites) > len(struc_sites):
+            print(f"ERROR: the input structure contains fewer sites than the structure used in AlloSigMA2. The sites not found are: {', '.join(missing_sites)}. Exiting...")
+            exit(1)
+
+allosigma_check = pd.merge(merged_data, allosigma_df, on=["wt_residue", "position", "chain"])
+
+if len(merged_data) > len(allosigma_check):
+    sites = list(set(merged_data.mutation) - set(allosigma_check.mutation))
+    print(f"ERROR: Mutations in the domain not present in the allosigma file, mutations: {', '.join(sites)}. Exiting...")
+    exit(1)
+
+#drop the second residue column and set index.    
+data = allosigma_check.set_index("mutation").drop(columns="chain")
+data = data.merge(volumes, left_on='wt_residue', right_on='aminoacid', ).rename(columns={'volume':'volume_wt'}).drop(columns='aminoacid')
+data = data.merge(volumes, left_on='mutated_residue', right_on='aminoacid', ).rename(columns={'volume':'volume_mutated'}).drop(columns='aminoacid')
+
+data['delta'] = data['volume_mutated'] - data['volume_wt']
+data['allosigma-mode'] = data.apply(allosigma_classify, axis=1, cutoff=args.cutoff)
+
+data.to_csv(args.output, index=False, sep='\t')
