@@ -1,2 +1,0 @@
-Lower Threshold (5th Percentile): -0.95
-Upper Threshold (95th Percentile): 2.17
