@@ -1,19 +1,10 @@
 #!/bin/bash
-source /usr/local/gromacs-2024/bin/GMXRC.bash
-. /usr/local/envs/pyinteraph/bin/activate
 
-# N.B. if protein has a cofactor it should be removed from trajectory
-# and topology prior to PSN constructuion 
+# PDB file
+pdb=$1
 
-# N.B. custome normalization factor file may be needed in case
-# of other residues 
-
-# copy first frame of trajectory as PDB file
-cp ../../../../4.frames/pdbmovie_1.pdb reference.pdb
-pdb=reference.pdb
-
-# use trajectory with only protein atoms 
-traj=traj_prot.xtc
+# Trajectory file  
+traj=$2
 
 #acPSN with Imin 3.0
 pyinteraph -v \
