@@ -1,16 +1,18 @@
 # Requirements
--to have an estimate of the Icrit for your protein
+# Trajectory filtered for protein atoms only
+# Residuetypes.dat file (if applicable)
+# PDB of the initial frame of the simulation
+# Normalization file (may need to be customised)
 
-# symbolic link to the traj
-ln -s ../../../../3.filt_trjs/traj_prot.xtc
-# have residuetypes.dat 
-cp ../../../../3.filt_trjs/residuetypes.dat .
+# Activate the pyinteraph environment
+# Load Python >= 3.7
 
 # run the acPSN
-tsp -N 1 ./1-contact.sh
+tsp -N 1 ./1-contact.sh PDB TRAJ
 
-# the log file in the folder can be used to check status of the calculation
+# The log file in the folder can be used to check status of the calculation
 
-# check last atom of the PDB and edit chainize.py using that number i.e. here chains=3087
-python2.7 chainize.py reference.pdb > reference_A.pdb
-# N.B. reference_A.pdb will be used in allosigma_psn 
+# Check the last atom number of the PDB and edit chainize.py using that number
+python2.7 chainize.py {PDB}.pdb > {PDB}_A.pdb
+
+# Go to dir: path_analysis to continue
