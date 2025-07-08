@@ -34,7 +34,7 @@ def read_input_file(input_file):
         Dataframe of mutations and response residues
     '''
     try:
-        df = pd.read_csv(input_file, sep='\t')
+        df = pd.read_csv(input_file, sep='\t', usecols=['Variant_Sites', 'Response_Sites'])
         return zip(df.iloc[:, 0], df.iloc[:, 1])
     except pd.errors.EmptyDataError:
         raise ValueError(f"The file {input_file} is empty.")
@@ -92,14 +92,12 @@ def gen_sh_file(data, output_sh, input_file, path_plot_sh, pdb_file):
                 main_script.write(
                     f"# {mutation}\n" \
                     f"mkdir {mut_dir}\n" \
-                    f"path_analysis -i ../acpsn-graph_all.dat -r ../{pdb_file} -s {mut_chain_id} -t {pocket_list} -p -a ./{mut_dir}/{output}\n"
-                )
+                    f"path_analysis -i ../acpsn-graph_all.dat -r ../{pdb_file} -s {mut_chain_id} -t {pocket_list} -p -a ./{mut_dir}/{output}\n")
 
                 # Write path_plot commands for each variant
                 plot_script.write(
                     f"# {mutation}\n" \
-                    f"python path_plot.py ../{pdb_file} ./{mut_dir}/{output}.txt ./{mut_dir}/{mut_dir}_session.pse\n\n"
-                )
+                    f"python path_plot.py ../{pdb_file} ./{mut_dir}/{output}.txt ./{mut_dir}/{mut_dir}_session.pse\n\n")
 
             # Run path_summary to obtain overall results     
             main_script.write(f"#Final output for validation of long_range effects of variants\n" \

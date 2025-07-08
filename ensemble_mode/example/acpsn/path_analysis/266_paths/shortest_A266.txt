@@ -1,0 +1,2 @@
+path	source	target	length	sum_weights	avg_weight
+A266,A204,A206,A277,A281,A301,A211,A259,A263,A308,A260	A266	A260	11	45.99999999999999	4.6

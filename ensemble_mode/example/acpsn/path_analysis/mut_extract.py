@@ -9,7 +9,7 @@
 
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 
 # You should have received a copy of the GNU General Public License
@@ -33,7 +33,7 @@ def check_file_exists(file_path):
     '''Check file exists.
 
     The function checks if the input file exists. 
-        
+
     Parameters
     ----------
     file_path: 
@@ -97,12 +97,12 @@ def read_input_tsv(input_file):
 
 def validate_residue(mutation, chain_id, res_pos, res_type, structure):
     '''Validate residues match from input in provided PDB structure.
-    
+
     The function aims to validate both position and residue types are in
     agreement between the input files and the provided PDB. 
-    
+
     Function is used to both validate mutation and pocket sites.
-    
+
     Parameters 
     ----------
     mutation: str
@@ -123,13 +123,13 @@ def validate_residue(mutation, chain_id, res_pos, res_type, structure):
         if chain_id not in structure:
             log.warning(f"Chain {chain_id} not found in structure.")
             return False
-        
+
         # Fetch the residue from the structure
         res = structure[chain_id][res_pos]
-        
+
         # Convert the PDB residue name to one-letter code
         pdb_res_type = Bio.PDB.Polypeptide.three_to_one(res.get_resname())
-        
+
         # Compare the input residue type with the PDB residue type
         if pdb_res_type == res_type:
             return True
@@ -143,23 +143,15 @@ def validate_residue(mutation, chain_id, res_pos, res_type, structure):
         log.error(f"Error during residue validation for {mutation}: {e}")
         return False
 
-def index_mutation_site(df):
-    '''Split mutations to set index.
-    The function aims to spli the values to extract the first mutation site
-    in the string.
-    Parameters 
-    ----------
-    df: df
-        DF of UP/DOWN variant-reponse pairs.
-    Returns 
-    ----------
-    df: df
-        DF with index set to mutation sites
-    '''
-    first_mutations = df.index.to_series().str.split(' ').str[0].str[:-1]
-    df = df.copy()
-    df.index = first_mutations
-    return df
+def parse_mutations(df):
+    pos_to_mut = {}
+    for mutation in df.index:
+        for mut in mutation.split():
+            pos = mut[1:-1]
+            if pos not in pos_to_mut:
+                pos_to_mut[pos] = set()
+            pos_to_mut[pos].add(mut)
+    return pos_to_mut
 
 def summarize_mutations(df1, df2, variants_to_include, structure, chain_id):
     '''Summarize Variant-Response Sites.
@@ -183,28 +175,44 @@ def summarize_mutations(df1, df2, variants_to_include, structure, chain_id):
     summary_data:  df
         Dataframe containing validated variants and respective response residues.
     '''
-    df1_first = index_mutation_site(df1)
-    df2_first = index_mutation_site(df2)
+    # Parse mutations from dfs
+    df1_map = parse_mutations(df1)
+    df2_map = parse_mutations(df2)
 
-    concatenated_df = pd.concat([df1_first, df2_first], axis=1, sort=True)
+    # Merge 
+    res_mutations = defaultdict(set)
+    for pos, muts in df1_map.items():
+        res_mutations[pos].update(muts)
+    for pos, muts in df2_map.items():
+        res_mutations[pos].update(muts)
 
-    mutation_set = set()
-    for mutation in concatenated_df.index:
-        first_mutation = mutation.split()[0]
-        mutation_set.add(first_mutation)
+    # Combine dataframes for lookup
+    combined_df = pd.concat([df1, df2], axis=0)
 
-    if variants_to_include:
-        mutation_set = {mut for mut in mutation_set if mut in variants_to_include}
+    summary_data = {
+        'Variant_Sites': [],
+        'Variants': [],
+        'Response_Sites': [],}
 
-    summary_data = {'Variant Sites': [], 'Response Sites': []}
+    for res_pos in sorted(res_mutations, key=lambda x: int(x)):
+        mutations = res_mutations[res_pos]
+        if variants_to_include:
+            filtered_muts = {mut for mut in mutations if mut in variants_to_include}
+            if not filtered_muts:
+                continue
+        else:
+            filtered_muts = mutations
 
-    for mutation in mutation_set:
-        res_pos, res_type = int(mutation[1:]), mutation[0]
+        # Use first mutation to validate residue position
+        example_mut = next(iter(mutations))
+        res_type = example_mut[0]
 
-        if not validate_residue(mutation, chain_id, res_pos, res_type, structure):
+        if not validate_residue(example_mut, chain_id, int(res_pos), res_type, structure):
             continue
 
-        matching_rows = concatenated_df.loc[[mut for mut in concatenated_df.index if mut.split()[0] == mutation]]
+        matching_rows = combined_df.loc[
+            [mut for mut in combined_df.index if any(m[1:-1] == res_pos for m in mut.split())]]
+
         pocket_residues = matching_rows.columns[matching_rows.notna().any()].tolist()
 
         valid_pocket_residues = set()
@@ -215,8 +223,10 @@ def summarize_mutations(df1, df2, variants_to_include, structure, chain_id):
                 valid_pocket_residues.add(pocket)
 
         if valid_pocket_residues:
-            summary_data['Variant Sites'].append(mutation[1:])
-            summary_data['Response Sites'].append(','.join(sorted(valid_pocket_residues)))
+            summary_data['Variant_Sites'].append(res_pos)
+            summary_data['Variants'].append(','.join(sorted(filtered_muts)))
+            summary_data['Response_Sites'].append(
+                ','.join(sorted(valid_pocket_residues, key=lambda x: int(x[1:]))))
 
     return pd.DataFrame(summary_data)
 
@@ -234,12 +244,11 @@ def write_summary_tsv(summary_df, output_file):
     '''
     try:
         # Sort the DataFrame 
-        summary_df['Variant Sites'] = summary_df['Variant Sites'].apply(lambda x: int(x))
-        summary_df.sort_values(by='Variant Sites', inplace=True)
-
-        summary_df['Response Sites'] = summary_df['Response Sites'].apply(lambda x: ','.join(sorted(x.split(','), key=lambda y: int(y[1:]))))
-
+        summary_df['Variant_Sites'] = summary_df['Variant_Sites'].apply(lambda x: int(x))
+        summary_df.sort_values(by='Variant_Sites', inplace=True)
+        summary_df['Response_Sites'] = summary_df['Response_Sites'].apply(lambda x: ','.join(sorted(x.split(','), key=lambda y: int(y[1:]))))
         summary_df.to_csv(output_file, sep='\t', index=False)
+
         log.info(f"File saved to {output_file}")
     except Exception as e:
         log.error(f"Error writing to file {output_file}: {e}")
