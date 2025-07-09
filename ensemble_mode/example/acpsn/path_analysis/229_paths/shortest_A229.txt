@@ -1,2 +1,0 @@
-path	source	target	length	sum_weights	avg_weight
-A229,A249,A233,A246	A229	A246	4	23.9	7.966666666666666

@@ -79,5 +79,5 @@ each respective mutation site folder.
 
 ### Example: 
 See `/ensemble/acpsn/path_analysis/` and the `readme.md` file. 
-N.B. to rerun the example please download the trajectory file from SMPD1 OSF repository: https://osf.io/d42zv/ (simulations_data/replicate1/charmm36/md/center_traj.xtc) from publication https://doi.org/10.1016/j.bbadis.2024.167260. The trajectory needs to be first indexed to contain only protein atoms. 
+N.B. to rerun the example please download the trajectory file from SMPD1 OSF repository: https://osf.io/w25ep/ (simulations_analysis/asm/membrane_bound/asm_5i85A_84-611_Man5glyN88_Man5glyN177_Man5glyN337_Man5glyN397_Man5glyN505_Man5glyN522/model1/heterogeneous/pc-34_pe-24_pi-8_ps-3_sm-6_chol-18_bmp-7/plpc_sapc_sdpc_plpe_sape_sapi_sdpi_saps_sdps_psm_lsm_chol_bmp/replicate1/charmm36/md/3.filt_trjs/traj_prot.xtc) from publication https://doi.org/10.1016/j.csbj.2024.05.049. 
 

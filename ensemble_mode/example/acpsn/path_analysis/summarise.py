@@ -9,16 +9,18 @@
 
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 # Imports
-import os
 import argparse
 import csv
+from pathlib import Path
+import logging as log
+
 
 def check_file_exists(file_path):
     '''Check file exists.
@@ -30,9 +32,9 @@ def check_file_exists(file_path):
     file_path: str
         Path of given file to be checked.
     '''
-    if not os.path.isfile(file_path):
+    if not Path(file_path).is_file():
         raise FileNotFoundError(f"File not found: {file_path}")
-
+    
 def read_tsv(tsv_file):
     '''Read TSV file.
 
@@ -49,18 +51,21 @@ def read_tsv(tsv_file):
         Dictionary of variant and response sites.
     '''
     tsv_data = {}
-    # Read TSV 
-    with open(tsv_file, 'r') as tsv:
-        reader = csv.reader(tsv, delimiter='\t')
-        # Skip header row
-        next(reader)
-        for row in reader:
-            # Define variant and response sites
-            variant = row[0]
-            pocket_residues = row[1].split(',')
-            # Split up list of residues to single pairs 
-            for residue in pocket_residues:
-                tsv_data.setdefault(variant, []).append(residue[1:])
+    try:
+        with open(tsv_file, 'r') as tsv:
+            reader = csv.reader(tsv, delimiter='\t')
+            next(reader)
+            for row in reader:
+                # Define variant and response sites
+                variant = row[0]
+                mutations = row[1]
+                pocket_residues = [res.strip()[1:] for res in row[2].split(',')]
+                # Split up list of residues to single pairs 
+                for residue in pocket_residues:
+                    tsv_data.setdefault(variant, []).append((mutations, residue))
+    except Exception as e:
+        log.error(f"Error reading TSV file: {e}")
+        raise 
     return tsv_data
 
 def collect_result_files(directory):
@@ -79,20 +84,19 @@ def collect_result_files(directory):
         Paths to the identified result files.
     '''
     result_files = []
+
+    base_dir = Path(directory)
+    if not base_dir.is_dir():
+        raise NotADirectoryError(f"Invalid directory path: {directory}")
     try:
-        for root, dirs, files in os.walk(directory):
-            for directory_name in dirs:
-                # Consider only files within path_analysis output directories 
-                if directory_name.endswith("_paths"):
-                    found_paths = True
-                    for file in os.listdir(os.path.join(root, directory_name)):
-                        # Identify result files
-                        if file.startswith("shortest_") and file.endswith(".txt"):
-                            result_files.append(os.path.join(root, directory_name, file))
-        if not result_files:
-            raise FileNotFoundError(f"No result files found in subdirectories of {directory}")
-    except FileNotFoundError as e:
-        print(f"Error: {e.strerror} - {e.filename}")
+        for subdir in base_dir.rglob("*_paths"):
+            if subdir.is_dir():
+                for file in subdir.glob("shortest_*.txt"):
+                    result_files.append(file)
+    except Exception as e:
+        raise RuntimeError(f"Unexpected error collecting files: {e}")
+    if not result_files:
+        raise FileNotFoundError(f"No result files found in {directory}")
     return result_files
 
 def update_result_data(result_data, key, path, average_weight, length, sum_weights):
@@ -116,24 +120,25 @@ def update_result_data(result_data, key, path, average_weight, length, sum_weigh
     path_avg_weight : float
         Average weight of the identified path.
     '''
-    # Initiate 
-    if key not in result_data:
-        result_data[key] = {'paths': [], 'max_weight_path': None, 'max_weight': 0.0, 'num_paths': 0}
-    # Else append to existing key and increase path count 
-    result_data[key]['paths'].append({
-        'path': path, 
+    entry = result_data.setdefault(key, {
+        'paths': [],
+        'max_weight_path': None,
+        'max_weight': 0.0,
+        'num_paths': 0})
+
+    entry['paths'].append({
+        'path': path,
         'average_weight': average_weight,
         'length': length,
         'sum_weights': sum_weights})
-    # Increment number of paths identified for key
-    result_data[key]['num_paths'] += 1
+    entry['num_paths'] += 1
 
-    # Identify path with highest average weight 
-    if average_weight > result_data[key]['max_weight']:
-        result_data[key]['max_weight_path'] = path
-        result_data[key]['max_weight'] = average_weight
-        result_data[key]['length'] = length
-        result_data[key]['sum_weights'] = sum_weights
+    if average_weight > entry['max_weight']:
+        entry.update({
+            'max_weight': average_weight,
+            'max_weight_path': path,
+            'length': length,
+            'sum_weights': sum_weights})
 
 def read_result_file(result_file):
     '''Reads files returning dicts. 
@@ -152,35 +157,35 @@ def read_result_file(result_file):
         Dictionary containing the parsed result data.
     '''
     result_data = {}
-
-    # Conduct check that file has columns as expected
+    min_path_length = 4
     required_columns = ['path', 'source', 'target', 'length', 'sum_weights', 'avg_weight']
-    try: 
-        with open(result_file, 'r') as result:
-            reader = csv.reader(result, delimiter='\t')
-            header = next(reader)
 
-            if not all(col in header for col in required_columns):
-                # Skip file if columns are incorrect/missing
-                raise ValueError(f"Skipping file {result_file} due to missing required columns: {', '.join(required_columns)}")
+    try:
+        with open(result_file, 'r') as f:
+            reader = csv.DictReader(f, delimiter='\t')
+            if not set(required_columns).issubset(reader.fieldnames):
+                log.warning(f"Skipping {result_file}: Missing required columns")
                 return result_data
 
-            # Define variables 
             for row in reader:
-                var = row[1][1:]  
-                target = row[2][1:]
-                path = row[0]
-                length = int(row[3])
-                sum_weights = float(row[4])
-                average_weight = float(row[5])
+                length = int(row['length'])
+                if length < min_path_length:
+                    continue
 
-                # Only retain paths of length 4 or more
-                if length >= 4:  
-                    key = (var, target)
-                    # Update the dictionary 
-                    update_result_data(result_data, key, path, average_weight, length, sum_weights)
-    except Exception as e:
-        print(f"Error reading file {result_file}: {e}")
+                var = row['source'][1:]
+                target = row['target'][1:]
+                key = (var, target)
+
+                update_result_data(
+                    result_data,
+                    key,
+                    row['path'],
+                    float(row['avg_weight']),
+                    length,
+                    float(row['sum_weights']))
+    except (OSError, ValueError, KeyError) as e:
+        log.error(f"Error reading {result_file}: {e}")
+        raise
     return result_data
 
 
@@ -188,7 +193,7 @@ def concatenate_results(result_files):
     '''Concatenate result dictionaries. 
 
     The function loops through files and concatenates them into a single dictionary.
-    
+
     Parameters
     ----------
     result_files : list
@@ -202,11 +207,12 @@ def concatenate_results(result_files):
     concatenated_data = {}
 
     for result_file in result_files:
-        # Obtain result data per result file
-        result_data = read_result_file(result_file)
-        # Update final dictionary for each result file
-        concatenated_data.update(result_data)
-
+        try:
+            result_data = read_result_file(result_file)
+            concatenated_data.update(result_data)
+        except Exception as e:
+            log.error(f"Failed to process {result_file}: {e}")
+            raise
     return concatenated_data
 
 
@@ -229,23 +235,19 @@ def compare_data(tsv_data, result_data):
         Dictionary containing results vs predictions data.
     '''
     compared_data = {}
-    # Define default dictionary structure
-    default_entry = {
-        'num_paths': 0,
-        'max_weight_path': '0',
-        'max_weight': 0,
-        'length': 0,
-        'sum_weights': 0}
 
-    # Loop variant-response pairs in TSV 
     for variant, residues in tsv_data.items():
-        for residue in residues:
+        for mutations, residue in residues:
             key = (variant, residue)
-            # Access respective var-response pair in result_data 
-            entry = result_data.get(key, default_entry)
-            # Update dictionary with identified data
+            entry = result_data.get(key, {
+                'num_paths': 0,
+                'max_weight_path': '0',
+                'max_weight': 0.0,
+                'length': 0,
+                'sum_weights': 0.0})
             compared_data[key] = {
-                'variant': variant, 
+                'variant': variant,
+                'mutations': mutations, 
                 'residue': residue, 
                 'num_paths': entry['num_paths'], 
                 'max_weight_path': entry['max_weight_path'], 
@@ -270,22 +272,28 @@ def write_output(compared_data, output_file):
     try:
         with open(output_file, 'w', newline='') as output:
             writer = csv.writer(output, delimiter='\t')
-            # Define header of final output file
-            writer.writerow(['Variant_Site', 'Response_Site', 'Total_Paths', 'Path', 'Length', 'Sum_Weights', 'Average_Weight'])
-
-            # Iterate over compared data and write to file
-            for key, data in compared_data.items():
+            writer.writerow(['Variant_Site', 
+                             'Variants', 
+                             'Response_Site',
+                            'Total_Paths', 
+                            'Path', 
+                            'Length', 
+                            'Sum_Weights', 
+                            'Average_Weight'])
+            for data in compared_data.values():
                 writer.writerow([
                     data['variant'], 
+                    data['mutations'],
                     data['residue'], 
                     data['num_paths'], 
                     data['max_weight_path'],
                     data['length'], 
                     data['sum_weights'],
                     data['max_weight']])
-        print(f"File saved to {output_file}")
+        log.info(f"File saved to {output_file}")
     except Exception as e:
-        raise RuntimeError(f"Error writing to file {output_file}: {e}")
+        log.error(f"Error writing to file {output_file}: {e}")
+        raise
 
 def main(tsv_file, working_dir, output_file):
     # Check if the TSV file exists
@@ -307,6 +315,10 @@ def main(tsv_file, working_dir, output_file):
     write_output(compared_data, output_file)
 
 if __name__ == "__main__":
+    # Basic logging configuration
+    log.basicConfig(level=log.INFO, \
+                    format='%(levelname)s - %(message)s')
+
     parser = argparse.ArgumentParser(description="Process TSV and result path txt files.")
     parser.add_argument('-tsv', dest="tsv_file", required=True, help="Path to the TSV file")
     parser.add_argument('-dir', dest="working_dir", required=True, help="Directory containing result subdirectories")

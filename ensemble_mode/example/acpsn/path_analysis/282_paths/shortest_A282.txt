@@ -1,1 +1,2 @@
 path	source	target	length	sum_weights	avg_weight
+A282,A322,A281,A301,A211,A213	A282	A213	6	22.299999999999997	4.459999999999999

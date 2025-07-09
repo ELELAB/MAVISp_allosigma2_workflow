@@ -1,0 +1,2 @@
+path	source	target	length	sum_weights	avg_weight
+A569,A573,A582	A569	A582	3	17.9	8.95
