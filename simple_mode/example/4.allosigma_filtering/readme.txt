@@ -1,4 +1,4 @@
-#source python env.
+# on our local server we have prepared a python env that needs to be sourced to run
 module load python
 
 #Requirements
@@ -6,7 +6,6 @@ module load python
 - file.pdb
 - up_mutations.tsv
 - down_mutations.tsv
-#having run classify and heatmap in raw_data - copy the relevant files from there
 
 bash do.sh file.pdb
 
@@ -19,3 +18,9 @@ bash do.sh file.pdb
 # if you need to run filtering with no pocket limitations, just remove --pocket. 
 # if you need to run filtering with a specific interface file, use the flag --interface 
 # followed by a txt file with sites (style: A119). 
+
+ln -s ../3.allosigma_heatmap/all/down_mutations.tsv .
+ln -s ../3.allosigma_heatmap/all/up_mutations.tsv .
+ln -s ../1.allosteric_signalling_map/wt.pdb .
+bash do.sh wt.pdb
+
