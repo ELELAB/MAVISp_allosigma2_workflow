@@ -602,8 +602,7 @@ def output_file(df, file):
 
     #add the number of mutations and the average dG.
     df['n_mutations'] = df.count(axis=1)
-    df['avg_dG'] = df.mean(axis=1, skipna=True)
-
+    df['avg_dG'] = df.drop(columns=['n_mutations']).mean(axis=1, skipna=True)
     #export.
     df = df.reset_index()
     df.to_csv(f"filtered_{file[:-4]}.tsv", sep="\t")
@@ -683,8 +682,7 @@ def pocket_analysis(df, PDB, file):
 
     #add the number of mutations and the average dG.
     df['n_mutations'] = df.count(axis=1)
-    df['avg_dG'] = df.mean(axis=1, skipna=True)
-
+    df['avg_dG'] = df.drop(columns=['n_mutations']).mean(axis=1, skipna=True)
     #export.
     df = df.reset_index()
     df.to_csv(f"filtered_{'_'.join(file[:-4].split('_')[:-1])}_pockets.tsv", sep="\t")
@@ -752,8 +750,7 @@ def interface_analysis(df, file, interface_file, PDB):
 
     #add the number of mutations and the average dG.
     df['n_mutations'] = df.count(axis=1)
-    df['avg_dG'] = df.mean(axis=1, skipna=True)
-
+    df['avg_dG'] = df.drop(columns=['n_mutations']).mean(axis=1, skipna=True)
     #export.
     df = df.reset_index()
     df.to_csv(f"filtered_{'_'.join(file[:-4].split('_')[:-1])}_interface.tsv", sep="\t")
