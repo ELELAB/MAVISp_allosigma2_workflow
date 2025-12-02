@@ -337,18 +337,26 @@ module load python
 | -b {white,black} | Optional | Background color for generated PyMOL sessions. Default = black.                           |
 
 #### Example of run:
+Navigate inside:
+
+`/MAVISp_allosigma2_workflow/simple_mode/example/5.allosigma_visualization/mixed_effects_visualisation/`
+
+and run:
+
+```
 module load python
-./mixed_effects_visualization -m R1781A -c ALPK2-simple_mode.csv
+./mixed_effects_visualization -m L245F -c ARID3A-simple_mode.csv
+```
 
 #### Output files:
 
 ```
 mixed_effects_visualization/
  │
- ├── R1781A.png
+ ├── L245F.png
  │
  └── pymol_sessions/
-        └── R1781A_pockets_visualization.pse 
+        └── L245F_pockets_visualization.pse 
 
 ```
 
