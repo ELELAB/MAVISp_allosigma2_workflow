@@ -332,7 +332,16 @@ def main():
 
     #Read mavisp csv:
     mavisp_df = pd.read_csv(mavisp_csv)
-    mut_type = mavisp_df[mavisp_df["Mutation"] == mut]["AlloSigMA 2 mutation type"]
+    allosigma_mut_type_headers = ["AlloSigMA 2 mutation type", "AlloSigma2 mutation type" ]
+    allosigma_mut_type_header = ""
+    for header in allosigma_mut_type_headers:
+        if header in mavisp_df.columns:
+            allosigma_mut_type_header = header
+    
+    if header == "":
+        raise ValueError(f"No column header associated to Allosigma mutation type was found")
+
+    mut_type = mavisp_df[mavisp_df["Mutation"] == mut][allosigma_mut_type_header]
     if mut_type.empty:
         raise ValueError(f"Mutation {mut} was not found in {mavisp_csv}.")
     mut_type = mut_type.iloc[0]
