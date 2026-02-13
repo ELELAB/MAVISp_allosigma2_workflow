@@ -16,7 +16,7 @@ This protocol is divided in five steps:
 
 4.allosigma_filtering_catalytic where the filtering considers manually provided catalytic sites as response sites
 
-5.allosigma_visualization to map and visualize on the 3D structure the pairs of mutation and response sites after filtering
+5.allosigma_visualization to map and visualize on the 3D structure the pairs of mutation and response sites after filtering and mixed_effects_visualisation to map and visualize specifically mutations that are predicted to have mixed allosteric effects.
 
 More details on each step and corresponding script is provided in the Sections below. Instructions on how to run
 each step are available in their respective folder.
@@ -302,6 +302,63 @@ areas as in the first plots, but also see how another loop is affected heavily i
   <img src="https://github.com/ELELAB/CSB-scripts/blob/fix%23%23307_allosigma_filtering_pocket/CSB-SB/allosigma-utils/example/allosigma-visualization/P153_sticks.png" width="300" />
   <img src="https://github.com/ELELAB/CSB-scripts/blob/fix%23%23307_allosigma_filtering_pocket/CSB-SB/allosigma-utils/example/allosigma-visualization/P153_putty.png" width="300" />
 </p>
+
+### mixed_effects_visualization
+
+#### Description
+
+Script created for the visualization of the allosteric effects of mutations annotated as `mixed_effects` in the `AlloSigma2 predicted consequence – pockets and interfaces` column of a MAVISp CSV file.
+
+Given a mutation and a MAVISp output file, the script produces:
+- A **heatmap** showing affected pocket residues with their corresponding ΔΔG values.
+- A **PyMOL session** (.pse) where the atoms of the affected pocket residues are colored either:
+	- by mutational effect (stabilizing/destabilizing), or
+	- by the pocket they belong to.
+
+#### Requirements to run the script:
+
+Before running the script, ensure that:
+1. The AlloSigma workflow has been completed up to step `4.allosigma_filtering`.
+2. You have the MAVISp CSV file for the target protein (`{GENENAME}-{simple|ensemble}_mode.csv`).
+
+#### Usage:
+```
+module load python
+./mixed_effects_visualization [-h] -m MUTATION -c CSV_FILE [-r RANGE] [-b {white,black}]
+```
+
+#### Arguments:
+
+| Flag             | Required | Description                                                                               |
+|------------------|----------|-------------------------------------------------------------------------------------------|
+| -m MUTATION      | Yes      | Mixed-effect mutation in format <WT><Position><Mutant>, e.g. A34V.                        |
+| -c CSV_FILE      | Yes      | Path to the MAVISp CSV file.                                                              |
+| -r RANGE         | Optional | Maximum absolute ΔΔG value for color scale. Example: -r 6 → range = -6 to 6. Default = 5. |
+| -b {white,black} | Optional | Background color for generated PyMOL sessions. Default = black.                           |
+
+#### Example of run:
+Navigate inside:
+
+`/MAVISp_allosigma2_workflow/simple_mode/example/5.allosigma_visualization/mixed_effects_visualisation/`
+
+and run:
+
+```
+module load python
+./mixed_effects_visualization -m L245F -c ARID3A-simple_mode.csv
+```
+
+#### Output files:
+
+```
+mixed_effects_visualization/
+ │
+ ├── L245F.png
+ │
+ └── pymol_sessions/
+        └── L245F_pockets_visualization.pse 
+
+```
 
 # Reference
 if you use the code in this repository please cite our work:

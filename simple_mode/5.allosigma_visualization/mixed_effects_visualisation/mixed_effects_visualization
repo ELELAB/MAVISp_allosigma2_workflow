@@ -1,0 +1,416 @@
+#!/usr/bin/env python3
+
+# mixed_effects_visualization
+# Copyright (C) 2025 Alessia Campo and Eleni Kiachaki, Cancer Structural Biology, Danish Cancer Institute
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+import argparse
+import re
+import pandas as pd
+from pathlib import Path
+import sys
+import os
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from pymol import cmd
+import os
+from Bio import PDB
+from Bio.Data import IUPACData
+import colorsys
+three_to_one = IUPACData.protein_letters_3to1
+parser = argparse.ArgumentParser()
+
+
+parser.add_argument("-m", "--mutation",
+                    type=str,
+                    required=True,
+                    help="Mutation of interest in format <WT><Position><Mutant>, e.g. A34V")
+parser.add_argument("-c", "--csv",
+                    metavar = "csv file",
+                    type=str,
+                    required=True,
+                    help="mavisp csv file")
+parser.add_argument("-r", "--range",
+                    type=float,
+                    required=False,
+                    default=5.0,
+                    help= "Maximum absolute ΔΔG value for color range. Example: -r 5 → range = -5 to 5. Default: 5.")
+parser.add_argument("-b", "--bg",
+                    choices=["white", "black"],
+                    required=False,
+                    default="black",
+                    help="Background color in PyMOL sessions (white or black). Default: black.")
+
+
+
+def pocket_cluster_selection_per_atom(allosigma_filtering_path, mut_row):
+
+    response_sites = mut_row.columns.tolist()
+    # get the path for the subfolder containing fpocket cluster files
+    # TODO: get the dir whose name end with _out and add as a requirment in the readme
+    dirs = [d for d in os.listdir(allosigma_filtering_path) if os.path.isdir(os.path.join(allosigma_filtering_path, d))]
+    pockets_subfolder_path = None
+    for d in dirs:
+        if d.endswith('_out'):
+            pockets_subfolder_path = f'{allosigma_filtering_path}/{d}/pockets'
+            break
+    if pockets_subfolder_path is None:
+            raise FileNotFoundError(f"Missing pocket directory")
+    
+    resp_sites_clusters_dict = {}
+    # iterate of the response sites of interest
+    for site in response_sites:
+        clusters_list_per_site = []
+        # get the site position
+        site_pos = int(''.join(filter(str.isdigit, site)))
+        # iterate over the pocket cluster files
+        for filename in os.listdir(pockets_subfolder_path):
+            # get the corresponding pocket_#.pdb file
+            # TODO: add as requirment in the readme to have this pdb file
+            if ".pdb" in filename:               
+                # open the file and check if the response site is included
+                parser = PDB.PDBParser(QUIET=True)
+                structure = parser.get_structure('original', f'{pockets_subfolder_path}/{filename}')
+                for model in structure:
+                    for chain in model:
+                        for res in chain:
+                            # skip water or hetero residues
+                            if res.id[0] != " ":
+                                continue
+                            # get residue position in the .pdb file and skip if not corresponding to the resp site 
+                            resnum = res.id[1]
+                            if resnum != site_pos:
+                                continue
+                            # get residue name and convert it to one-letter code
+                            resname = res.get_resname()
+                            resname_clean = resname.strip().capitalize() 
+                            one_letter = three_to_one.get(resname_clean, "X") 
+                            # define residue id as XN (e.g. P11) to parse it with the resp site nomenclature
+                            res_id = f"{one_letter}{resnum}" 
+                            # if resp site and residue in the .pdb match - select the pocket number and save in into a dictionary 
+                            if site == res_id and resnum == site_pos: 
+                                with open(f'{pockets_subfolder_path}/{filename}') as f:
+                                    header_lines = [line.rstrip() for line in f if line.startswith("HEADER")]
+                                    for header in header_lines:
+                                        if "Information about the pocket" in header:
+                                            header_split = header.split()
+                                            # get the cluster number 
+                                            cluster_number = int(''.join(filter(str.isdigit, header_split[-1])))
+                                            #if resnum == site_pos:
+                                            # get residue atoms included in the current pocket file
+                                            res_atoms = list(res.get_atoms())
+                                            # assign the cluster to the set of atoms
+                                            atoms_cluster = (res_atoms, cluster_number)
+                                            # store the tuple in a list
+                                            clusters_list_per_site.append(atoms_cluster)
+        # assign the list containing atoms grouped by cluster to the response site
+        resp_sites_clusters_dict[site] = clusters_list_per_site
+    
+    return resp_sites_clusters_dict
+
+def compute_hsv_difference(color_1, color_2):
+
+    rgb_color_1 = cmd.get_color_tuple(color_1) 
+    hsv_color_1 = colorsys.rgb_to_hsv(*rgb_color_1)[0]
+    rgb_color_2 = cmd.get_color_tuple(color_2) 
+    hsv_color_2 = colorsys.rgb_to_hsv(*rgb_color_2)[0]
+    hsv_diff = min(abs(hsv_color_1 - hsv_color_2), 1-abs(hsv_color_1 - hsv_color_2))
+    
+    return hsv_diff
+
+def compute_rgb_distance(color_1, color_2):
+    
+    rgb_color_1 = cmd.get_color_tuple(color_1) 
+    rgb_color_2 = cmd.get_color_tuple(color_2) 
+    rgb_dist = sum((a-b)**2 for a,b in zip(rgb_color_1, rgb_color_2))**0.05
+    
+    return rgb_dist
+
+def get_max_color_diversity(allowed_color_tmp, bg):
+    
+    allowed_cluster_colors = []
+    for i in range(len(allowed_color_tmp)):       
+        color_name_1 = allowed_color_tmp[i]
+        
+        if color_name_1 != bg:                 
+            for j in range(len(allowed_color_tmp)):
+                color_name_2 = allowed_color_tmp[j]
+                diff_hsv = compute_hsv_difference(color_name_1, color_name_2)        
+                distance_rgb = compute_rgb_distance(color_name_1, color_name_2)
+                
+                if (distance_rgb > 0.4 and diff_hsv > 0.15 and color_name_2 != bg):
+                    allowed_cluster_colors.append(color_name_1)
+
+    return list(set(allowed_cluster_colors))
+
+def select_cluster_colors(pymol_colors, mut_color, structure_color, n_clusters, bg):
+    
+
+    allowed_cluster_colors_tmp = []
+    allowed_cluster_colors = []
+
+    for color in pymol_colors:
+        color_name = color[0]
+        diff_hsv_structure = compute_hsv_difference(color_name, structure_color) 
+        diff_hsv_mut =  compute_hsv_difference(color_name, mut_color)
+        distance_rgb_structure = compute_rgb_distance(color_name, structure_color)
+        distance_rgb_mut = compute_rgb_distance(color_name, mut_color)
+ 
+        if (distance_rgb_structure > 0.4 and distance_rgb_mut > 0.4 
+            and diff_hsv_structure > 0.15 and diff_hsv_mut > 0.15 and color_name != bg):
+            if color_name not in allowed_cluster_colors_tmp:
+                allowed_cluster_colors_tmp.append(color_name)
+
+    if len(allowed_cluster_colors_tmp) == 0 or len(allowed_cluster_colors_tmp) < n_clusters:
+        for color in pymol_colors:
+            color_name = color[0]
+            if color_name not in allowed_cluster_colors:
+                allowed_cluster_colors_tmp.append(color_name)
+
+    allowed_cluster_colors = get_max_color_diversity(allowed_cluster_colors_tmp, bg)
+
+    return allowed_cluster_colors
+
+def select_atoms_by_cluster(obj1, mutation, resp_sites_collection, structure_color, bg):
+    
+    mut_color = "firebrick"
+    residue_representation = "sticks"
+    pos = int(''.join(filter(str.isdigit, mutation)))
+
+    if not os.path.exists("pymol_sessions"):
+        os.mkdir("pymol_sessions")
+    
+    # select mutation position and coloured it using a fixed color
+    mutation_selection = f'{obj1} and resid {pos}'
+    cmd.select('mutation_selection', str(mutation_selection))
+    cmd.show(residue_representation,'mutation_selection')
+    cmd.color(mut_color, 'mutation_selection')
+    
+    # retrieve the cluster number
+    clusters_number_list = []
+    tmp_dictionary = resp_sites_collection
+    # iterate over the response sites in the dictionary
+    for site in resp_sites_collection.keys():
+        # for each site retrieve the atoms lists grouped by cluster and store the atoms only on a tmp list
+        clusters_list_per_site = []
+        atoms_by_cluster = resp_sites_collection[site]
+        atoms_collection = []
+        for atoms_list in atoms_by_cluster:
+            for atom in atoms_list[0]:
+                atoms_collection.append(atom)
+        # retrieve the cluster with the largest number of atoms
+        most_atoms_cluster = max(atoms_by_cluster, key=lambda x: len(x[0]))
+        
+        # for each atom of the resp site perform the following:
+        # - if the atom belongs to the list with the majority of atoms, assing the beloning cluster to it
+        # - otherwise- if the atom belongs to another cluster list, assign the belonging cluster
+        # - if the atom belongs to two different cluster lists- assign it to the cluster where the majority of atoms belong
+        for atom in set(atoms_collection):
+            if atom in most_atoms_cluster[0]:
+                if most_atoms_cluster not in clusters_list_per_site:
+                    clusters_list_per_site.append(most_atoms_cluster)
+                clusters_number_list.append(most_atoms_cluster[1])
+            else:
+                tmp_list = []
+                for sublist in atoms_by_cluster:
+                    if atom in sublist[0]:
+                        if sublist[0] not in clusters_list_per_site:
+                            atom_l = [atom]
+                            clusters_list_per_site.append((atom_l,sublist[1]))
+                        clusters_number_list.append(sublist[1])
+        # store the response site's atoms and their final assigned clusters to a tmp dict
+        tmp_dictionary[site] = clusters_list_per_site
+    
+    # assign clusters to colors
+    unique_clusters=set(clusters_number_list)
+    pymol_colors=list(cmd.get_color_indices()) 
+    allowed_cluster_colors = select_cluster_colors(pymol_colors, mut_color, structure_color,  len(unique_clusters), bg)
+    clusters_colors_dict = {}
+    for i,cluster_id in zip(range(len(allowed_cluster_colors)),unique_clusters):
+        cluster_color = allowed_cluster_colors[i]
+        clusters_colors_dict[cluster_id] = cluster_color
+    
+    # select and color response sites' atoms based on pocket clusters assigned
+    for site in tmp_dictionary.keys():
+        site_pos = int(''.join(filter(str.isdigit, site)))
+        response_site_selection = f'{obj1} and resid {site_pos}'
+        cmd.select('response_site_selection', str(response_site_selection))
+        cmd.show(residue_representation,'response_site_selection')
+        cmd.delete('response_site_selection')
+        atoms_list_id = 0
+        for obj in tmp_dictionary[site]:
+            for atom in obj[0]:
+                atom_resp_site_selection = f'{obj1} and resid {site_pos} and name {atom.get_name()}'
+                cmd.select('response_sites_atom', str(atom_resp_site_selection))
+                cmd.show(residue_representation,'response_sites_atom')
+                cluster_color = clusters_colors_dict[tmp_dictionary[site][atoms_list_id][1]]
+                cmd.color(cluster_color, 'response_sites_atom')
+                cmd.delete('response_sites_atom')
+            atoms_list_id +=1
+
+def select_resp_sites_by_effect(obj2, mutation, mut_row, resp_sites_collection, structure_color, rmin, rmax):
+
+    pos_mut = int(''.join(filter(str.isdigit, mutation)))
+    if not os.path.exists("pymol_sessions"):
+        os.mkdir("pymol_sessions")
+    residue_representation = "spheres"
+    mut_color = "yellow"
+    # select mutation position
+    mutation_selection = f'{obj2} and resid {pos_mut}'
+    cmd.select('mutation_selection', str(mutation_selection))
+    cmd.show(residue_representation, 'mutation_selection and name CA')
+    cmd.color(mut_color, 'mutation_selection')
+    cmd.delete('mutation_selection')
+    
+    values_row = mut_row
+    resp_sites = list(values_row.columns)
+    
+    for resi in resp_sites:
+        cmd.alter(f"{obj2} and resi {int(''.join(filter(str.isdigit, resi)))}", f"b={values_row[resi].values[0]}")
+    # select all residues in one selection
+    all_residues_selection = " or ".join([f"resi {int(''.join(filter(str.isdigit, r)))}" for r in resp_sites])
+    
+    cmd.select("resp_sites_sel", f"{obj2} and ({all_residues_selection})")
+    cmd.show(residue_representation, "resp_sites_sel and name CA")
+    #all_ddg = values_row.values.tolist()[0]
+    cmd.spectrum("b", "blue_white_red", "resp_sites_sel", minimum=rmin, maximum=rmax)
+    cmd.delete("resp_sites_sel")
+
+def create_pymol_objects(pdb_path,mut_row, mutation, resp_sites_collection, structure_color, mut_color, residue_representation, rmin, rmax, bg):
+    
+    cmd.load(pdb_path, 'structure')
+    cmd.show('cartoon')
+    cmd.color(structure_color)
+    cmd.bg_color(bg)
+
+    if not os.path.exists("pymol_sessions"):
+        os.mkdir("pymol_sessions")
+    # create two objects:
+    # obj1 - pdb structure with response sites atoms coloured by cluster
+    # obj2- pdb structure with response sites coloured by stability effect 
+    obj1 = 'resp_sites_coloured_by_cluster'
+    obj2 = 'resp_sites_coloured_by_effect'
+    cmd.create(obj1, 'structure')
+    cmd.create(obj2, 'structure')
+    # select atoms of response sites and colour by cluster
+    select_atoms_by_cluster(obj1, mutation, resp_sites_collection, structure_color, bg)
+    # select residues of response sites and colour by stability effect 
+    select_resp_sites_by_effect(obj2, mutation,mut_row, resp_sites_collection, structure_color, rmin, rmax)
+    cmd.save("pymol_sessions/" + f'{mutation}_pockets_visualization' + '.pse')
+
+
+def main():
+    args = parser.parse_args()
+
+    mut = args.mutation
+    mut_check = re.fullmatch(r"[A-Z]\d+[A-Z]", mut)
+    if not mut_check:
+        raise ValueError(f"The mutation {mut} was not provided in a valid format. "
+                          "Try again with mutation in format <WT><Position><Mutant>, e.g. A34V")
+    mavisp_csv = args.csv
+    absrange = args.range
+    rmin, rmax = -absrange, absrange
+    bg = args.bg
+    protein_name = mavisp_csv.split('-')[0]
+
+    filtering_lr_dir = Path("../../4.allosigma_filtering")
+    if not filtering_lr_dir:
+        raise FileNotFoundError(f"No 4.allosigma_filtering directory found for {protein_name}")
+
+    #Read mavisp csv:
+    mavisp_df = pd.read_csv(mavisp_csv)
+    allosigma_mut_type_headers = ["AlloSigMA 2 mutation type", "AlloSigma2 mutation type" ]
+    allosigma_mut_type_header = ""
+    for header in allosigma_mut_type_headers:
+        if header in mavisp_df.columns:
+            allosigma_mut_type_header = header
+    
+    if header == "":
+        raise ValueError(f"No column header associated to Allosigma mutation type was found")
+
+    mut_type = mavisp_df[mavisp_df["Mutation"] == mut][allosigma_mut_type_header]
+    if mut_type.empty:
+        raise ValueError(f"Mutation {mut} was not found in {mavisp_csv}.")
+    mut_type = mut_type.iloc[0]
+
+    up_path = filtering_lr_dir / "filtered_up_pockets.tsv"
+    down_path = filtering_lr_dir / "filtered_down_pockets.tsv"
+    if not up_path.exists() or not down_path.exists():
+        raise FileNotFoundError(f"Missing filtered pocket files in {filtering_lr_dir}")
+
+    if mut_type == "UP":
+    	pockets_df = pd.read_csv(up_path, sep="\t")
+    elif mut_type == "DOWN":
+    	pockets_df = pd.read_csv(down_path, sep="\t")
+    else:
+        raise ValueError(
+            "Mutation has not been classified as UP or DOWN. "
+            "Long range effects will not be investigated.")
+
+    pockets_df["mutations"] = pockets_df["mutations"].str.split(r"\s")
+    pockets_df = pockets_df.explode("mutations", ignore_index=False)
+
+    mut_row = pockets_df[pockets_df["mutations"] == mut]
+    if mut_row.empty:
+        raise KeyError("Mutation was not found in the filtered pockets tsv file")
+
+    exclude_cols = {"n_mutations", "avg_dG", "Unnamed: 0", "mutations"}
+    mut_row = mut_row.drop(columns = exclude_cols)
+    mut_row = mut_row.dropna(axis = 1, how = "all")
+
+    values = mut_row.values.flatten()
+    if (values < rmin).any() or (values > rmax).any():
+        raise ValueError(f"ΔΔG values for mutation {mut} fall outside the selected range ({rmin}, {rmax}). "
+                          "Please adjust the range using the -r flag (e.g., -r 6).")
+    mut_row.index = [mut]
+    sns.set_theme(style="whitegrid")
+    sns.heatmap(mut_row.T, cmap="coolwarm", center=(rmin+rmax)/2, vmin=rmin, vmax=rmax,
+                linewidths=0.8, annot=True,
+                cbar_kws={"shrink": 0.5, "label": "ΔΔG (kcal/mol)"})
+    plt.xlabel(f"Mutation", weight="bold")
+    plt.ylabel("Pocket residues", weight="bold")
+    plt.savefig(f"{mut}.png")
+
+    ###### PYMOL SESSIONS ######
+
+    # get the pdb file of the protein structure 
+    file_pdbs = [f for f in os.listdir(filtering_lr_dir) if f.endswith(".pdb")]
+    if len(file_pdbs) == 0:
+        raise FileNotFoundError(f"Missing input structure .pdb file in the working directory")
+
+    # combine with folder path to get full paths
+    full_pdb_path = f'{filtering_lr_dir}/{file_pdbs[0]}'
+
+    # internally defined visual settings
+    if bg == "white":
+        structure_color = "grey70"
+    else:
+        structure_color = "bluewhite"
+    mut_color = "firebrick"
+    residue_representation = "sticks"
+
+    # create a dict to store- for each response site- the atoms grouped by cluster 
+    clusters_per_site_dict = pocket_cluster_selection_per_atom(filtering_lr_dir, mut_row)
+    # create a pymol session containing two main objects: atoms sticks coloured by clusters; residues as spheres coloured by stability effect
+    create_pymol_objects(full_pdb_path,mut_row, args.mutation, clusters_per_site_dict, structure_color, mut_color, residue_representation, rmin, rmax, bg)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
